@@ -117,13 +117,19 @@ func handle(conn net.Conn) {
 			// 0-128 is filename area,its a built-in protocol,use 0 to end
 			// true length 129
 			filename := cache[:n][:128]
+			if len(filename) < 5 {
+				conn.Write([]byte("error"))
+				conn.Close()
+				return
+			}
 			for k, v := range filename {
 				if v == 0 {
 					filename = cache[:k]
 					break
 				}
 			}
-			err := ioutil.WriteFile(string(filename), cache[129:n], 777)
+			fmt.Println("file name:", string(filename))
+			err := ioutil.WriteFile(string(filename), cache[128:n], 777)
 			if err != nil {
 				conn.Write([]byte("error"))
 			}
