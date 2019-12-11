@@ -7,10 +7,10 @@ import (
 	"os"
 	"testing"
 )
-import "../../file"
+import "../../fserver"
 
 func TestFile(t *testing.T) {
-	file.Start()
+	fserver.Start()
 }
 func TestSp(t *testing.T) {
 	fs, _ := os.Open("abcd.jpg")
