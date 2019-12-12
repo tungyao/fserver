@@ -147,7 +147,7 @@ func handle(conn net.Conn) {
 					break
 				}
 			}
-			//fmt.Println("file name:", string(filename))
+			fmt.Println("tpc up file:", string(filename))
 			err := ioutil.WriteFile(string(filename), cache[128:n], 777)
 			if err != nil {
 				conn.Write([]byte("error"))

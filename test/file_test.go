@@ -13,9 +13,9 @@ func TestFile(t *testing.T) {
 	fserver.Start()
 }
 func TestSp(t *testing.T) {
-	fs, _ := os.Open("abcd.jpg")
+	fs, _ := os.Open("abcd.png")
 	data, _ := ioutil.ReadAll(fs)
-	conn, err := net.Dial("tcp", "file.yaop.ink:80")
+	conn, err := net.Dial("tcp", "localhost:7777")
 	if err != nil {
 		log.Println(err)
 	}
