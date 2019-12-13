@@ -3,7 +3,6 @@ package fserver
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"net"
 	"os"
@@ -174,11 +173,13 @@ func handle(conn net.Conn) {
 				}
 			}
 			fmt.Println("tpc up file:", string(filename))
-			err := ioutil.WriteFile(string(filename), cache[128:n], 777)
+			fs, err := os.OpenFile(string(filename), os.O_CREATE|os.O_WRONLY, 666)
 			if err != nil {
-				conn.Write([]byte("error"))
+				log.Println(err)
 			}
-			conn.Write([]byte("success"))
+			fs.Write(cache[128:n])
+			fs.Close()
+			conn.Write([]byte("https://file.yaop.ink/" + string(filename)))
 			conn.Close()
 		}
 	}
