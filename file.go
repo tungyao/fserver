@@ -44,7 +44,7 @@ func handle(conn net.Conn) {
 	if err != nil && err != io.EOF {
 		log.Println(err, 1)
 	}
-	//fmt.Println(string(cache[:n]))
+	//fmt.Println((cache[:n]))
 	if len(cache[:n]) >= 14 {
 		// HTTP protocol
 		a, _ := SplitString(cache[:n], []byte("\n"))
@@ -80,17 +80,43 @@ func handle(conn net.Conn) {
 						break
 					}
 				}
-				c, p := SplitString(cache[:n], []byte("\r\n\r\n"))
-				//fmt.Println(len(c))
-				if len(c) >= 4 {
-					err := ioutil.WriteFile(string(filename), cache[:n][p[2]:n-(po+2)], 666)
+				contype, _ := SplitString(filename, []byte("."))
+				//fmt.Println(len(a))
+				//for _, v := range a {
+				//	fmt.Println((v))
+				//	fmt.Println("----------------------------------------------------")
+				//}
+				if Equal(contype[len(contype)-1], []byte("png")) {
+					a, p := SplitString(cache[:n], []byte{137, 80, 78, 71, 13, 10})
+					//fmt.Println(len(a))
+					if len(a) >= 2 {
+						//fmt.Println(cache[:n][p[len(p)-1]-6:len(cache[:n])-po-2])
+						fs, err := os.OpenFile(string(filename), os.O_CREATE|os.O_WRONLY, 666)
+						if err != nil {
+							log.Println(err)
+						}
+						fs.Write(cache[:n][p[1]-6 : len(cache[:n])-po-3])
+						fs.Close()
+						if err != nil {
+							log.Println(err)
+						}
+						toJson(conn, "200 OK", `{"url":"https://file.yaop.ink/`+string(filename)+`"}`)
+						//toHttpError(conn, "200 OK", "application/json")
+						return
+					}
+				}
+				if len(a) >= 2 {
+					_, p := SplitString(cache[:n], []byte{13, 10, 13, 10})
+					fs, err := os.OpenFile(string(filename), os.O_CREATE|os.O_WRONLY, 666)
 					if err != nil {
 						log.Println(err)
 					}
-					toHttpError(conn, "200 OK", "text/html")
+					fs.Write(cache[:n][p[len(p)-1]:])
+					fs.Close()
+					toJson(conn, "200 OK", `{"url":"https://file.yaop.ink/`+string(filename)+`"}`)
 					return
 				}
-				toError(conn, "415 Unsupported Media Type", "text/html")
+				toJson(conn, "415 Unsupported Media Type", ``)
 				return
 			}
 			// http download file
@@ -157,6 +183,17 @@ func handle(conn net.Conn) {
 		}
 	}
 }
+func toJson(conn net.Conn, ok string, body string) {
+	if conn != nil {
+		conn.Write([]byte("HTTP/1.1 " + ok + "\r\n"))
+		conn.Write([]byte("Server: FileServer\r\n"))
+		conn.Write([]byte("Date: " + time.Now().String() + "\r\n"))
+		conn.Write([]byte("Content-Type: application/json\r\n\r\n"))
+		conn.Write([]byte(body))
+		conn.Close()
+	}
+	return
+}
 func toHttpError(conn net.Conn, ok string, ty string) {
 	if conn != nil {
 		conn.Write([]byte("HTTP/1.1 " + ok + "\r\n"))
@@ -184,7 +221,7 @@ func Equal(one []byte, two []byte) bool {
 		return false
 	}
 	for k, v := range one {
-		if (v) != two[k] {
+		if v != two[k] {
 			return false
 		}
 	}
@@ -192,13 +229,13 @@ func Equal(one []byte, two []byte) bool {
 }
 func SplitString(str []byte, p []byte) ([][]byte, []int) {
 	group := make([][]byte, 0)
-	postion := make([]int, 0)
+	portion := make([]int, 0)
 	ps := 0
 	for i := 0; i < len(str); i++ {
 		if str[i] == p[0] && i < len(str)-len(p) {
 			if len(p) == 1 {
 				group = append(group, str[ps:i])
-				postion = append(postion, ps)
+				portion = append(portion, ps)
 				ps = i + len(p)
 			} else {
 				for j := 1; j < len(p); j++ {
@@ -206,7 +243,7 @@ func SplitString(str []byte, p []byte) ([][]byte, []int) {
 						continue
 					} else {
 						group = append(group, str[ps:i])
-						postion = append(postion, ps)
+						portion = append(portion, ps)
 						ps = i + len(p)
 					}
 				}
@@ -216,5 +253,6 @@ func SplitString(str []byte, p []byte) ([][]byte, []int) {
 		}
 	}
 	group = append(group, str[ps:])
-	return group, postion
+	portion = append(portion, ps)
+	return group, portion
 }
