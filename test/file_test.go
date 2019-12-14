@@ -1,6 +1,8 @@
 package test
 
 import (
+	"crypto/sha1"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"net"
@@ -10,7 +12,15 @@ import (
 import "../../fserver"
 
 func TestFile(t *testing.T) {
-	fserver.Start()
+	fserver.Start("http://localhost:7777/")
+}
+func sha(data []byte) string {
+	t := sha1.New()
+	t.Write(data)
+	return fmt.Sprintf("%x", t.Sum(nil))
+}
+func TestOther(t *testing.T) {
+	fmt.Println(sha([]byte("123456")))
 }
 func TestSp(t *testing.T) {
 	fs, _ := os.Open("abcd.png")

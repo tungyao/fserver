@@ -1,6 +1,7 @@
 package fserver
 
 import (
+	"crypto/sha1"
 	"fmt"
 	"io"
 	"log"
@@ -20,10 +21,10 @@ var con_type map[string]string = map[string]string{
 	"avi": "video/avi",
 	"mp3": "audio/mp3"}
 
-func Start() {
-	client()
+func Start(youserver string) {
+	client(youserver)
 }
-func client() {
+func client(youserver string) {
 	l, err := net.Listen("tcp", ":7777")
 	if err != nil {
 		log.Println(err)
@@ -34,10 +35,10 @@ func client() {
 			log.Println(err)
 			continue
 		}
-		go handle(con)
+		go handle(con, youserver)
 	}
 }
-func handle(conn net.Conn) {
+func handle(conn net.Conn, youserver string) {
 	cache := make([]byte, 2048000)
 	n, err := conn.Read(cache)
 	if err != nil && err != io.EOF {
@@ -90,7 +91,8 @@ func handle(conn net.Conn) {
 					//fmt.Println(len(a))
 					if len(a) >= 2 {
 						//fmt.Println(cache[:n][p[len(p)-1]-6:len(cache[:n])-po-2])
-						fs, err := os.OpenFile(string(filename), os.O_CREATE|os.O_WRONLY, 666)
+						filen := sha(cache[:n][p[1]-6 : len(cache[:n])-po-3])
+						fs, err := os.OpenFile(filen+"."+string(contype[len(contype)-1]), os.O_CREATE|os.O_WRONLY, 666)
 						if err != nil {
 							log.Println(err)
 						}
@@ -99,20 +101,21 @@ func handle(conn net.Conn) {
 						if err != nil {
 							log.Println(err)
 						}
-						toJson(conn, "200 OK", `{"url":"https://file.yaop.ink/`+string(filename)+`"}`)
+						toJson(conn, "200 OK", `{"url":"`+youserver+filen+"."+string(contype[len(contype)-1])+`"}`)
 						//toHttpError(conn, "200 OK", "application/json")
 						return
 					}
 				}
 				if len(a) >= 2 {
 					_, p := SplitString(cache[:n], []byte{13, 10, 13, 10})
-					fs, err := os.OpenFile(string(filename), os.O_CREATE|os.O_WRONLY, 666)
+					filen := sha(cache[:n][p[1]-6 : len(cache[:n])-po-3])
+					fs, err := os.OpenFile(filen+"."+string(contype[len(contype)-1]), os.O_CREATE|os.O_WRONLY, 666)
 					if err != nil {
 						log.Println(err)
 					}
 					fs.Write(cache[:n][p[len(p)-1]:])
 					fs.Close()
-					toJson(conn, "200 OK", `{"url":"https://file.yaop.ink/`+string(filename)+`"}`)
+					toJson(conn, "200 OK", `{"url":"`+youserver+filen+"."+string(contype[len(contype)-1])+`"}`)
 					return
 				}
 				toJson(conn, "415 Unsupported Media Type", ``)
@@ -173,13 +176,15 @@ func handle(conn net.Conn) {
 				}
 			}
 			fmt.Println("tpc up file:", string(filename))
-			fs, err := os.OpenFile(string(filename), os.O_CREATE|os.O_WRONLY, 666)
+			contype, _ := SplitString(filename, []byte("."))
+			filen := sha(cache[128:n])
+			fs, err := os.OpenFile(filen+"."+string(contype[len(contype)-1]), os.O_CREATE|os.O_WRONLY, 666)
 			if err != nil {
 				log.Println(err)
 			}
 			fs.Write(cache[128:n])
 			fs.Close()
-			conn.Write([]byte("https://file.yaop.ink/" + string(filename)))
+			conn.Write([]byte(youserver + filen))
 			conn.Close()
 		}
 	}
@@ -256,4 +261,9 @@ func SplitString(str []byte, p []byte) ([][]byte, []int) {
 	group = append(group, str[ps:])
 	portion = append(portion, ps)
 	return group, portion
+}
+func sha(data []byte) string {
+	t := sha1.New()
+	t.Write(data)
+	return fmt.Sprintf("%x", t.Sum(nil))
 }
