@@ -4,3 +4,4 @@ The file server based on TCP protocol, without HTTP protocol packing, does not n
 2. TCP direct transmission
 3. HTTP/ALL download
 4. User defined file upload type
+5. HTTP download support resize the image

@@ -3,6 +3,7 @@ package test
 import (
 	"crypto/sha1"
 	"fmt"
+	"image"
 	"io/ioutil"
 	"log"
 	"net"
@@ -21,6 +22,18 @@ func sha(data []byte) string {
 }
 func TestOther(t *testing.T) {
 	fmt.Println(sha([]byte("123456")))
+}
+func TestImage(t *testing.T) {
+	fs, err := os.Open("./ff7d0fbc486ac031f9da55c9607cc55b77ca77a1.png")
+	if err != nil {
+		log.Println(err)
+	}
+	img, _, err := image.Decode(fs)
+	if err != nil {
+		log.Println(err)
+	}
+	bounds := img.Bounds()
+	fmt.Println(bounds.Size())
 }
 func TestSp(t *testing.T) {
 	fs, _ := os.Open("abcd.png")

@@ -49,7 +49,7 @@ func handle(conn net.Conn, youserver string) {
 		// HTTP protocol
 		a, _ := SplitString(cache[:n], []byte("\n"))
 		//fmt.Println(a[0][len(a[0])-9:])
-		if Equal(a[0][len(a[0])-9:len(a[0])-3], []byte{72, 84, 84, 80, 47, 49}) { // HTTP/1
+		if Equal(a[0][len(a[0])-9:len(a[0])-5], []byte{72, 84, 84, 80}) { // HTTP/1
 			url, _ := SplitString(a[0], []byte(" "))
 			//fmt.Println(12313213)
 			//fmt.Println(url)
@@ -122,7 +122,11 @@ func handle(conn net.Conn, youserver string) {
 				return
 			}
 			// http download file
-			contype, _ := SplitString(url[1], []byte("."))
+			query, _ := SplitString(url[1], []byte("&"))
+			if len(query) >= 2 {
+
+			}
+			contype, _ := SplitString(query[0], []byte("."))
 			//fmt.Println(string(contype[1]))
 			if con_type[string(contype[1])] != "" {
 				//fmt.Println(123123)
@@ -133,9 +137,9 @@ func handle(conn net.Conn, youserver string) {
 					tp = con_type[string(contype[len(contype)-1:][0])]
 				}
 				//fs, err := os.Open("." + string(url[1]))
-				fs, err := os.OpenFile("."+string(url[1]), os.O_RDONLY, 666)
+				fs, err := os.OpenFile("."+string(query[0]), os.O_RDONLY, 666)
 				//fmt.Println(tp)
-				fmt.Println("get file :" + string(url[1]))
+				fmt.Println("get file :" + string(query[0]))
 				if err != nil {
 					log.Println(err)
 					toHttpError(conn, "404 Not Found", tp)
@@ -145,6 +149,7 @@ func handle(conn net.Conn, youserver string) {
 					conn.Write([]byte("Date: " + time.Now().String() + "\r\n"))
 					conn.Write([]byte("Content-Type: " + tp + "\r\n\r\n"))
 					//cache = make([]byte, 40960)
+
 					for {
 						n, err := fs.Read(cache)
 						if err == io.EOF || n == 0 {
