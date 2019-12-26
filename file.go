@@ -1,12 +1,14 @@
 package fserver
 
 import (
+	"bytes"
 	"crypto/sha1"
 	"fmt"
 	"io"
 	"log"
 	"net"
 	"os"
+	"strconv"
 	"time"
 )
 
@@ -44,7 +46,6 @@ func handle(conn net.Conn, youserver string) {
 	if err != nil && err != io.EOF {
 		log.Println(err, 1)
 	}
-	//fmt.Println((cache[:n]))
 	if len(cache[:n]) >= 14 {
 		// HTTP protocol
 		a, _ := SplitString(cache[:n], []byte("\n"))
@@ -57,67 +58,71 @@ func handle(conn net.Conn, youserver string) {
 			//fmt.Println("---------------------------------")
 			// http upload file
 			if Equal(url[1], []byte("/upload")) {
-				var filename []byte
-				po := 0
-				b := true
-				for k, v := range a {
-					if len(v) >= 12 && Equal(v[:12], []byte("Content-Type")) && b {
-						m, _ := SplitString(v[15:], []byte("="))
-						filename = m[1]
-						b = false
-						continue
-					}
-					if len(filename)+2 != len(v) {
-						continue
-					}
-					if "--"+string(filename) == string(v) {
-						//fmt.Println(string(v))
-						m, _ := SplitString(a[k+1], []byte("filename="))
-						filename = m[1]
-						filename = filename[1 : len(filename)-2]
-						fmt.Println("up file :" + string(filename))
-						po = len(v)
-						break
-					}
-				}
-				contype, _ := SplitString(filename, []byte("."))
+				//var filename []byte
+				//po := 0
+				//b := true
+				//for k, v := range a {
+				//	if len(v) >= 12 && Equal(v[:12], []byte("Content-Type")) && b {
+				//		m, _ := SplitString(v[15:], []byte("="))
+				//		filename = m[1]
+				//		b = false
+				//		continue
+				//	}
+				//	if len(filename)+2 != len(v) {
+				//		continue
+				//	}
+				//	if "--"+string(filename) == string(v) {
+				//		//fmt.Println(string(v))
+				//		m, _ := SplitString(a[k+1], []byte("filename="))
+				//		filename = m[1]
+				//		filename = filename[1 : len(filename)-2]
+				//		fmt.Println("up file :" + string(filename))
+				//		po = len(v)
+				//		break
+				//	}
+				//}
+				//contype, _ := SplitString(filename, []byte("."))
 				//fmt.Println(len(a))
 				//for _, v := range a {
 				//	fmt.Println((v))
 				//	fmt.Println("----------------------------------------------------")
 				//}
-				if Equal(contype[len(contype)-1], []byte("png")) {
-					a, p := SplitString(cache[:n], []byte{137, 80, 78, 71, 13, 10})
-					//fmt.Println(len(a))
-					if len(a) >= 2 {
-						//fmt.Println(cache[:n][p[len(p)-1]-6:len(cache[:n])-po-2])
-						filen := sha(cache[:n][p[1]-6 : len(cache[:n])-po-3])
-						fs, err := os.OpenFile(filen+"."+string(contype[len(contype)-1]), os.O_CREATE|os.O_WRONLY, 666)
-						if err != nil {
-							log.Println(err)
-						}
-						fs.Write(cache[:n][p[1]-6 : len(cache[:n])-po-3])
-						fs.Close()
-						if err != nil {
-							log.Println(err)
-						}
-						toJson(conn, "200 OK", `{"url":"`+youserver+filen+"."+string(contype[len(contype)-1])+`"}`)
-						//toHttpError(conn, "200 OK", "application/json")
-						return
-					}
-				}
-				if len(a) >= 2 {
-					_, p := SplitString(cache[:n], []byte{13, 10, 13, 10})
-					filen := sha(cache[:n][p[1]-6 : len(cache[:n])-po-3])
-					fs, err := os.OpenFile(filen+"."+string(contype[len(contype)-1]), os.O_CREATE|os.O_WRONLY, 666)
-					if err != nil {
-						log.Println(err)
-					}
-					fs.Write(cache[:n][p[len(p)-1]:])
-					fs.Close()
-					toJson(conn, "200 OK", `{"url":"`+youserver+filen+"."+string(contype[len(contype)-1])+`"}`)
-					return
-				}
+				//if Equal(contype[len(contype)-1], []byte("png")) {
+				//	a, p := SplitString(cache[:n], []byte{137, 80, 78, 71, 13, 10})
+				//	//fmt.Println(len(a))
+				//	if len(a) >= 2 {
+				//		//fmt.Println(cache[:n][p[len(p)-1]-6:len(cache[:n])-po-2])
+				//		//fmt.Println(p)
+				//		//fmt.Println(len(cache[:n]))
+				//		filen := sha(cache[:n][p[1]-6 : len(cache[:n])-po-3])
+				//		fs, err := os.OpenFile(filen+"."+string(contype[len(contype)-1]), os.O_CREATE|os.O_WRONLY, 666)
+				//		if err != nil {
+				//			log.Println(err)
+				//		}
+				//		fs.Write(cache[:n][p[1]-6 : len(cache[:n])-po-3])
+				//		fs.Close()
+				//		if err != nil {
+				//			log.Println(err)
+				//		}
+				//		toJson(conn, "200 OK", `{"url":"`+youserver+filen+"."+string(contype[len(contype)-1])+`"}`)
+				//		//toHttpError(conn, "200 OK", "application/json")
+				//		return
+				//	}
+				//}
+				//if len(a) >= 2 {
+				//	_, p := SplitString(cache[:n], []byte{13, 10, 13, 10})
+				//	filen := sha(cache[:n][p[1]-6 : len(cache[:n])-po-3])
+				//	fs, err := os.OpenFile(filen+"."+string(contype[len(contype)-1]), os.O_CREATE|os.O_WRONLY, 666)
+				//	if err != nil {
+				//		log.Println(err)
+				//	}
+				//	fs.Write(cache[:n][p[len(p)-1]:])
+				//	fs.Close()
+				//	toJson(conn, "200 OK", `{"url":"`+youserver+filen+"."+string(contype[len(contype)-1])+`"}`)
+				//	return
+				//}
+				formatFile(cache[:n])
+
 				toJson(conn, "415 Unsupported Media Type", ``)
 				return
 			}
@@ -193,6 +198,7 @@ func handle(conn net.Conn, youserver string) {
 			conn.Close()
 		}
 	}
+	toError(conn, "502 Bad Gateway", "text/html")
 }
 func toJson(conn net.Conn, ok string, body string) {
 	if conn != nil {
@@ -271,4 +277,115 @@ func sha(data []byte) string {
 	t := sha1.New()
 	t.Write(data)
 	return fmt.Sprintf("%x", t.Sum(nil))
+}
+func formatFile(data []byte) []byte {
+	// boundary name
+	var boundary []byte
+	var boundaryPoint = false
+	// file size
+	var fileSize int
+	var fileSizeSilce = make([]byte, 0)
+	// file name
+	var fileName []byte = make([]byte, 0)
+	var fileNamePoint bool
+	var fileSizePoint bool
+	var seek = make([]int, 0)
+	var trueData int = 0
+	for k, v := range data {
+		// find boundary name, out => boundary name
+		if !boundaryPoint {
+			if v == 'b' {
+				if data[k+1] == 'o' && data[k+2] == 'u' && data[k+3] == 'n' {
+					for _, c := range data[k+9:] {
+						if c == '\r' {
+							break
+						}
+						boundary = append(boundary, c)
+					}
+					boundaryPoint = true
+				}
+			}
+		}
+		// find file size,out => fileSize
+		if !fileSizePoint {
+			if v == 'C' {
+				if data[k+8] == 'L' && data[k+9] == 'e' && data[k+10] == 'n' {
+					for _, c := range data[k+16:] {
+						if c == '\r' {
+							break
+						}
+						fileSizeSilce = append(fileSizeSilce, c)
+					}
+					fileSizePoint = true
+					fileSize, _ = strconv.Atoi(string(fileSizeSilce))
+				}
+			}
+		}
+		if boundaryPoint {
+			if len(seek) >= 3 {
+				break
+			}
+			if bytes.Equal(boundary, data[k:k+len(boundary)]) {
+				seek = append(seek, k)
+			}
+		}
+	}
+	if len(seek) < 3 {
+		return nil
+	}
+	for i := 0; i < len(data[seek[1]:seek[2]]); i++ {
+		if i > 300 {
+			break
+		}
+		if data[seek[1]:seek[2]][i] == 'f' {
+			if !fileNamePoint && data[seek[1]:seek[2]][i+4] == 'n' && data[seek[1]:seek[2]][i+5] == 'a' {
+				for _, v := range data[seek[1]:seek[2]][i+10:] {
+					if v == 13 {
+						break
+					}
+					fileName = append(fileName, v)
+				}
+				fileNamePoint = true
+			}
+		}
+		if data[seek[1]:seek[2]][i] == 13 && data[seek[1]:seek[2]][i+1] == 13 {
+			trueData = i + 2
+			break
+		}
+	}
+	if trueData == 0 {
+		for i := 0; i < len(data[seek[1]:seek[2]]); i++ {
+			if i > 300 {
+				break
+			}
+			if data[seek[1]:seek[2]][i] == 'f' {
+				if !fileNamePoint && data[seek[1]:seek[2]][i+4] == 'n' && data[seek[1]:seek[2]][i+5] == 'a' {
+					for _, v := range data[seek[1]:seek[2]][i+10:] {
+						if v == 13 {
+							break
+						}
+						fileName = append(fileName, v)
+					}
+					fileNamePoint = true
+				}
+			}
+			if data[seek[1]:seek[2]][i] == 13 && data[seek[1]:seek[2]][i+1] == 10 && data[seek[1]:seek[2]][i+2] == 13 && data[seek[1]:seek[2]][i+3] == 10 {
+				trueData = i + 4
+				break
+			}
+		}
+	}
+	filet, _ := SplitString(fileName[:len(fileName)-1], []byte{'.'})
+	//fmt.Println(string(boundary))
+	//fmt.Println(trueData)
+	//fmt.Println(fileSize)
+	//fmt.Println(fileName)
+	//fmt.Println(seek)
+	// 239 191 189 239 191
+	//fmt.Println(data[seek[1]:seek[2]][trueData : seek[2]-296-len(boundary)])
+	outName := sha(data[seek[1]:seek[2]][trueData : seek[2]-296-len(boundary)])
+	fs, _ := os.OpenFile(outName, os.O_CREATE|os.O_WRONLY, 666)
+	fs.Write(data[seek[1]:seek[2]][trueData : seek[2]-len(boundary)-295])
+	fs.Close()
+	return []byte(outName + "." + string(filet[1]))
 }
