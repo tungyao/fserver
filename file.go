@@ -3,6 +3,7 @@ package fserver
 import (
 	"bytes"
 	"crypto/sha1"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -23,10 +24,15 @@ var con_type map[string]string = map[string]string{
 	"avi": "video/avi",
 	"mp3": "audio/mp3"}
 
-func Start(youserver string) {
-	client(youserver)
+type FormData struct {
+	Appid  string
+	Secret string
 }
-func client(youserver string) {
+
+func Start(yourselves string) {
+	client(yourselves)
+}
+func client(yourselves string) {
 	l, err := net.Listen("tcp", ":7777")
 	if err != nil {
 		log.Println(err)
@@ -37,198 +43,108 @@ func client(youserver string) {
 			log.Println(err)
 			continue
 		}
-		go handle(con, youserver)
+		go handle(con, yourselves)
 	}
 }
-func handle(conn net.Conn, youserver string) {
+func handle(conn net.Conn, yourselves string) {
 	cache := make([]byte, 2048000)
 	n, err := conn.Read(cache)
 	if err != nil && err != io.EOF {
 		log.Println(err, 1)
 	}
-	if len(cache[:n]) >= 14 {
-		// HTTP protocol
-		a, _ := SplitString(cache[:n], []byte("\n"))
-		//fmt.Println(a[0][len(a[0])-9:])
-		if Equal(a[0][len(a[0])-9:len(a[0])-5], []byte{72, 84, 84, 80}) { // HTTP/1
-			url, _ := SplitString(a[0], []byte(" "))
-			//fmt.Println(12313213)
-			//fmt.Println(url)
-			//fmt.Println(string(url[1]))
-			//fmt.Println("---------------------------------")
-			// http upload file
-			if Equal(url[1], []byte("/upload")) {
-				//var filename []byte
-				//po := 0
-				//b := true
-				//for k, v := range a {
-				//	if len(v) >= 12 && Equal(v[:12], []byte("Content-Type")) && b {
-				//		m, _ := SplitString(v[15:], []byte("="))
-				//		filename = m[1]
-				//		b = false
-				//		continue
-				//	}
-				//	if len(filename)+2 != len(v) {
-				//		continue
-				//	}
-				//	if "--"+string(filename) == string(v) {
-				//		//fmt.Println(string(v))
-				//		m, _ := SplitString(a[k+1], []byte("filename="))
-				//		filename = m[1]
-				//		filename = filename[1 : len(filename)-2]
-				//		fmt.Println("up file :" + string(filename))
-				//		po = len(v)
-				//		break
-				//	}
-				//}
-				//contype, _ := SplitString(filename, []byte("."))
-				//fmt.Println(len(a))
-				//for _, v := range a {
-				//	fmt.Println((v))
-				//	fmt.Println("----------------------------------------------------")
-				//}
-				//if Equal(contype[len(contype)-1], []byte("png")) {
-				//	a, p := SplitString(cache[:n], []byte{137, 80, 78, 71, 13, 10})
-				//	//fmt.Println(len(a))
-				//	if len(a) >= 2 {
-				//		//fmt.Println(cache[:n][p[len(p)-1]-6:len(cache[:n])-po-2])
-				//		//fmt.Println(p)
-				//		//fmt.Println(len(cache[:n]))
-				//		filen := sha(cache[:n][p[1]-6 : len(cache[:n])-po-3])
-				//		fs, err := os.OpenFile(filen+"."+string(contype[len(contype)-1]), os.O_CREATE|os.O_WRONLY, 666)
-				//		if err != nil {
-				//			log.Println(err)
-				//		}
-				//		fs.Write(cache[:n][p[1]-6 : len(cache[:n])-po-3])
-				//		fs.Close()
-				//		if err != nil {
-				//			log.Println(err)
-				//		}
-				//		toJson(conn, "200 OK", `{"url":"`+youserver+filen+"."+string(contype[len(contype)-1])+`"}`)
-				//		//toHttpError(conn, "200 OK", "application/json")
-				//		return
-				//	}
-				//}
-				//if len(a) >= 2 {
-				//	_, p := SplitString(cache[:n], []byte{13, 10, 13, 10})
-				//	filen := sha(cache[:n][p[1]-6 : len(cache[:n])-po-3])
-				//	fs, err := os.OpenFile(filen+"."+string(contype[len(contype)-1]), os.O_CREATE|os.O_WRONLY, 666)
-				//	if err != nil {
-				//		log.Println(err)
-				//	}
-				//	fs.Write(cache[:n][p[len(p)-1]:])
-				//	fs.Close()
-				//	toJson(conn, "200 OK", `{"url":"`+youserver+filen+"."+string(contype[len(contype)-1])+`"}`)
-				//	return
-				//}
-				formatFile(cache[:n])
+	// upload
+	if checkUploadOrDownload(cache[5:12]) {
+		// start upload Verification
 
-				toJson(conn, "415 Unsupported Media Type", ``)
+		//form := parseQuery(cache[14:])
+		//if len(form) == 0 {
+		//	toErrorJson(conn, errors.New("key or value is error").Error())
+		//	return
+		//}
+
+		name, _, err := formatFile(cache[:n])
+		if err != nil {
+			toErrorJson(conn, err.Error())
+			return
+		}
+		toSuccessJson(conn, yourselves+string(name))
+		return
+	}
+	// download
+	for k, v := range cache[5:] {
+		if v == 32 {
+			fs, err := os.Open(string(cache[5 : k+5]))
+			if err != nil {
+				toErrorJson(conn, err.Error())
 				return
 			}
-			// http download file
-			query, _ := SplitString(url[1], []byte("&"))
-			if len(query) >= 2 {
-
-			}
-			contype, _ := SplitString(query[0], []byte("."))
-			//fmt.Println(string(contype[1]))
-			if con_type[string(contype[1])] != "" {
-				//fmt.Println(123123)
-				tp := ""
-				if con_type[string(contype[len(contype)-1:][0])] == "" {
-					tp = "application/octet-stream"
-				} else {
-					tp = con_type[string(contype[len(contype)-1:][0])]
-				}
-				//fs, err := os.Open("." + string(url[1]))
-				fs, err := os.OpenFile("."+string(query[0]), os.O_RDONLY, 666)
-				//fmt.Println(tp)
-				fmt.Println("get file :" + string(query[0]))
-				if err != nil {
-					log.Println(err)
-					toHttpError(conn, "404 Not Found", tp)
-				} else {
-					conn.Write([]byte("HTTP/1.1 " + "200" + " OK\r\n"))
-					conn.Write([]byte("Server: FileServer\r\n"))
-					conn.Write([]byte("Date: " + time.Now().String() + "\r\n"))
-					conn.Write([]byte("Content-Type: " + tp + "\r\n\r\n"))
-					//cache = make([]byte, 40960)
-
-					for {
-						n, err := fs.Read(cache)
-						if err == io.EOF || n == 0 {
-							break
-						}
-						conn.Write(cache[:n])
-					}
-					fs.Close()
-					conn.Close()
-					//fs.Close()
-					return
-				}
-			}
-		} else {
-			// TCP protocol , this is pretty faster
-			// 0-128 is filename area,its a built-in protocol,use 0 to end
-			// true length 129
-			//fmt.Println(123)
-			filename := cache[:n][:128]
-			if len(filename) < 5 {
-				conn.Write([]byte("error"))
-				conn.Close()
-				return
-			}
-			for k, v := range filename {
-				if v == 0 {
-					filename = cache[:k]
+			Faye, _ := SplitString(cache[5:k+5], []byte("."))
+			conn.Write([]byte("HTTP/1.1 200 OK\r\n"))
+			conn.Write([]byte("Server: FileServer\r\n"))
+			conn.Write([]byte("Date: " + time.Now().String() + "\r\n"))
+			conn.Write([]byte("Content-Type: " + con_type[string(Faye[len(Faye)-1])] + "\r\n\r\n"))
+			out := make([]byte, 10240)
+			for {
+				m, err := fs.Read(out)
+				if err == io.EOF || m == 0 {
 					break
 				}
+				_, _ = conn.Write(out[:m])
 			}
-			fmt.Println("tpc up file:", string(filename))
-			contype, _ := SplitString(filename, []byte("."))
-			filen := sha(cache[128:n])
-			fs, err := os.OpenFile(filen+"."+string(contype[len(contype)-1]), os.O_CREATE|os.O_WRONLY, 666)
-			if err != nil {
-				log.Println(err)
-			}
-			fs.Write(cache[128:n])
-			fs.Close()
-			conn.Write([]byte(youserver + filen))
-			conn.Close()
+			break
 		}
 	}
-	toError(conn, "502 Bad Gateway", "text/html")
-}
-func toJson(conn net.Conn, ok string, body string) {
 	if conn != nil {
-		conn.Write([]byte("HTTP/1.1 " + ok + "\r\n"))
+		_ = conn.Close()
+	}
+}
+func checkUploadOrDownload(body []byte) bool {
+	if Equal(body, []byte{47, 117, 112, 108, 111, 97, 100}) {
+		return true
+	}
+	return false
+}
+func parseQuery(body []byte) []FormData {
+	out := make([]FormData, 0)
+	for k, v := range body {
+		if v == 32 {
+			d, _ := SplitString(body[:k], []byte{38})
+			if len(d) == 0 {
+				return nil
+			}
+			for _, v := range d {
+				c, _ := SplitString(v, []byte{61})
+				if len(c) == 0 {
+					continue
+				}
+				out = append(out, FormData{
+					Appid:  string(c[0]),
+					Secret: string(c[1]),
+				})
+			}
+			break
+		}
+	}
+	return out
+}
+func toSuccessJson(conn net.Conn, body string) {
+	if conn != nil {
+		conn.Write([]byte("HTTP/1.1 200 OK\r\n"))
 		conn.Write([]byte("Server: FileServer\r\n"))
 		conn.Write([]byte("Date: " + time.Now().String() + "\r\n"))
-		conn.Write([]byte("Content-Type: application/json\r\n\r\n"))
-		conn.Write([]byte(body))
+		conn.Write([]byte("Content-Type: Application/json\r\n\r\n"))
+		conn.Write([]byte(`{"t":1,"ok"":"yes","msg":"success","data":"` + body + `"}`))
 		conn.Close()
 	}
 	return
 }
-func toHttpError(conn net.Conn, ok string, ty string) {
+func toErrorJson(conn net.Conn, msg string) {
 	if conn != nil {
-		conn.Write([]byte("HTTP/1.1 " + ok + "\r\n"))
+		conn.Write([]byte("HTTP/1.1 503 Service Unavailable\r\n"))
 		conn.Write([]byte("Server: FileServer\r\n"))
 		conn.Write([]byte("Date: " + time.Now().String() + "\r\n"))
-		conn.Write([]byte("Content-Type: " + ty + "\r\n\r\n"))
-		conn.Write([]byte("<h1>SUCCESS</h1>"))
-		conn.Close()
-	}
-	return
-}
-func toError(conn net.Conn, ok string, ty string) {
-	if conn != nil {
-		conn.Write([]byte("HTTP/1.1 " + ok + "\r\n"))
-		conn.Write([]byte("Server: FileServer\r\n"))
-		conn.Write([]byte("Date: " + time.Now().String() + "\r\n"))
-		conn.Write([]byte("Content-Type: " + ty + "\r\n\r\n"))
-		conn.Write([]byte("<h1>ERROR</h1>"))
+		conn.Write([]byte("Content-Type: Application/json\r\n\r\n"))
+		conn.Write([]byte(`{"t":0,"ok"":"no","msg":"` + msg + `","data":""}`))
 		conn.Close()
 	}
 	return
@@ -278,7 +194,7 @@ func sha(data []byte) string {
 	t.Write(data)
 	return fmt.Sprintf("%x", t.Sum(nil))
 }
-func formatFile(data []byte) []byte {
+func formatFile(data []byte) ([]byte, int, error) {
 	// boundary name
 	var boundary []byte
 	var boundaryPoint = false
@@ -331,7 +247,7 @@ func formatFile(data []byte) []byte {
 		}
 	}
 	if len(seek) < 3 {
-		return nil
+		return nil, 0, errors.New("FormData parsing error : Seek length is less than 3")
 	}
 	for i := 0; i < len(data[seek[1]:seek[2]]); i++ {
 		if i > 300 {
@@ -375,7 +291,11 @@ func formatFile(data []byte) []byte {
 			}
 		}
 	}
-	filet, _ := SplitString(fileName[:len(fileName)-1], []byte{'.'})
+	if trueData == 0 {
+		return nil, 0, errors.New("FormData parsing error : trueData is 0")
+	}
+	files, _ := SplitString(fileName[:len(fileName)-1], []byte{'.'})
+	outName := sha(data[seek[1]:seek[2]][trueData : seek[2]-296-len(boundary)])
 	//fmt.Println(string(boundary))
 	//fmt.Println(trueData)
 	//fmt.Println(fileSize)
@@ -383,9 +303,15 @@ func formatFile(data []byte) []byte {
 	//fmt.Println(seek)
 	// 239 191 189 239 191
 	//fmt.Println(data[seek[1]:seek[2]][trueData : seek[2]-296-len(boundary)])
-	outName := sha(data[seek[1]:seek[2]][trueData : seek[2]-296-len(boundary)])
-	fs, _ := os.OpenFile(outName, os.O_CREATE|os.O_WRONLY, 666)
-	fs.Write(data[seek[1]:seek[2]][trueData : seek[2]-len(boundary)-295])
-	fs.Close()
-	return []byte(outName + "." + string(filet[1]))
+	//fmt.Println(outName + "." + string(files[1]))
+	fs, err := os.OpenFile(outName+"."+string(files[1]), os.O_CREATE|os.O_WRONLY, 666)
+	if err != nil {
+		return nil, 0, err
+	}
+	_, err = fs.Write(data[seek[1]:seek[2]][trueData : seek[2]-len(boundary)-295])
+	if err != nil {
+		return nil, 0, err
+	}
+	_ = fs.Close()
+	return []byte(outName + "." + string(files[1])), fileSize, nil
 }
