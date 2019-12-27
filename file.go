@@ -52,8 +52,38 @@ func handle(conn net.Conn, yourselves string) {
 	if err != nil && err != io.EOF {
 		log.Println(err, 1)
 	}
+	// use tcp
+	// TCP protocol , this is pretty faster , fist byte must is FF(255)
+	// 1-129 is filename area,its a built-in protocol,use 0 to end
+	// true length 129
+	//fmt.Println(123)
+	if cache[0] == 0xFF {
+		filename := cache[:n][1:129]
+		if len(filename) < 5 {
+			_, _ = conn.Write([]byte("error"))
+			_ = conn.Close()
+			return
+		}
+		for k, v := range filename {
+			if v == 0 {
+				filename = cache[:k]
+				break
+			}
+		}
+		contuse, _ := SplitString(filename, []byte("."))
+		filer := sha(cache[129:n])
+		fs, err := os.OpenFile(filer+"."+string(contuse[len(contuse)-1]), os.O_CREATE|os.O_WRONLY, 666)
+		if err != nil {
+			log.Println(err)
+		}
+		_, _ = fs.Write(cache[129:n])
+		_ = fs.Close()
+		_, _ = conn.Write([]byte(yourselves + filer))
+		goto end
+	}
 	// upload
 	if checkUploadOrDownload(cache[5:12]) {
+		fmt.Println("upload")
 		// start upload Verification
 
 		//form := parseQuery(cache[14:])
@@ -94,6 +124,7 @@ func handle(conn net.Conn, yourselves string) {
 			break
 		}
 	}
+end:
 	if conn != nil {
 		_ = conn.Close()
 	}
@@ -298,17 +329,17 @@ func formatFile(data []byte) ([]byte, int, error) {
 	outName := sha(data[seek[1]:seek[2]][trueData : seek[2]-296-len(boundary)])
 	//fmt.Println(string(boundary))
 	//fmt.Println(trueData)
-	//fmt.Println(fileSize)
-	//fmt.Println(fileName)
-	//fmt.Println(seek)
+	fmt.Println(fileSize)
+	fmt.Println(string(fileName))
+	fmt.Println(seek)
 	// 239 191 189 239 191
-	//fmt.Println(data[seek[1]:seek[2]][trueData : seek[2]-296-len(boundary)])
+	//fmt.Println(string(data[seek[1]:seek[2]][trueData : seek[2]-296-len(boundary)]))
 	//fmt.Println(outName + "." + string(files[1]))
 	fs, err := os.OpenFile(outName+"."+string(files[1]), os.O_CREATE|os.O_WRONLY, 666)
 	if err != nil {
 		return nil, 0, err
 	}
-	_, err = fs.Write(data[seek[1]:seek[2]][trueData : seek[2]-len(boundary)-295])
+	_, err = fs.Write(data[seek[1]:seek[2]][trueData : seek[2]-296-len(boundary)])
 	if err != nil {
 		return nil, 0, err
 	}
