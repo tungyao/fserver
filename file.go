@@ -74,6 +74,9 @@ func handle(conn net.Conn, yourselves string) {
 		log.Println(err, 1)
 	}
 	responsePage(conn, cache[:n], "/ ")
+	if conn == nil {
+		return
+	}
 	// use tcp
 	// TCP protocol , this is pretty faster , fist byte must is FF(255)
 	// 1-129 is filename area,its a built-in protocol,use 0 to end
@@ -106,7 +109,6 @@ func handle(conn net.Conn, yourselves string) {
 	// upload
 	if checkUploadOrDownload(cache[5:12]) {
 		// start upload Verification
-
 		form := parseQuery(cache[:n])
 		if form.Get("appid").Value != "admin" && form.Get("secret").Value != "123456" {
 			toErrorJson(conn, "appid or secret is error")
@@ -160,6 +162,7 @@ func responsePage(conn net.Conn, body []byte, prefix string) {
 			conn.Write([]byte("Date: " + time.Now().String() + "\r\n"))
 			conn.Write([]byte("Content-Type: text/html\r\n\r\n"))
 			conn.Write([]byte(`<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta http-equiv="X-UA-Compatible" content="ie=edge"><title>Welcome</title></head><body><h3>This is FileSystemServer</h3> </body></html>`))
+			_ = conn.Close()
 		}
 	// response POST
 	case 'P':
@@ -169,12 +172,11 @@ func responsePage(conn net.Conn, body []byte, prefix string) {
 			conn.Write([]byte("Date: " + time.Now().String() + "\r\n"))
 			conn.Write([]byte("Content-Type: text/html\r\n\r\n"))
 			conn.Write([]byte(`<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta http-equiv="X-UA-Compatible" content="ie=edge"><title>Welcome</title></head><body><h3>This is FileSystemServer</h3> </body></html>`))
+			_ = conn.Close()
 		}
 	// response other
 	default:
 	}
-	_ = conn.Close()
-	return
 }
 func checkUploadOrDownload(body []byte) bool {
 	if Equal(body, []byte{47, 117, 112, 108, 111, 97, 100}) {
