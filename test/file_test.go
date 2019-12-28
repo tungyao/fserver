@@ -23,7 +23,6 @@ func sha(data []byte) string {
 	return fmt.Sprintf("%x", t.Sum(nil))
 }
 func TestOther(t *testing.T) {
-	fmt.Println(sha([]byte("123456")))
 }
 func TestImage(t *testing.T) {
 	fs, err := os.Open("./ff7d0fbc486ac031f9da55c9607cc55b77ca77a1.png")

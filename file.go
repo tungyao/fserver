@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-var con_type map[string]string = map[string]string{
+var conType map[string]string = map[string]string{
 	"png": "image/png",
 	"jpg": "image/jpeg",
 	"svg": "text/xml",
@@ -28,7 +28,28 @@ type FormData struct {
 	Appid  string
 	Secret string
 }
+type QueryItem struct {
+	Key   string
+	Value string
+}
+type Query struct {
+	Items map[string]*QueryItem
+}
 
+func (q *Query) Get(key string) *QueryItem {
+	da, ok := q.Items[key]
+	if ok {
+		return da
+	} else {
+		return &QueryItem{}
+	}
+}
+func (q *Query) Set(key, value string) {
+	q.Items[key] = &QueryItem{
+		Key:   key,
+		Value: value,
+	}
+}
 func Start(yourselves string) {
 	client(yourselves)
 }
@@ -52,6 +73,7 @@ func handle(conn net.Conn, yourselves string) {
 	if err != nil && err != io.EOF {
 		log.Println(err, 1)
 	}
+	responsePage(conn, cache[:n], "/ ")
 	// use tcp
 	// TCP protocol , this is pretty faster , fist byte must is FF(255)
 	// 1-129 is filename area,its a built-in protocol,use 0 to end
@@ -83,15 +105,13 @@ func handle(conn net.Conn, yourselves string) {
 	}
 	// upload
 	if checkUploadOrDownload(cache[5:12]) {
-		fmt.Println("upload")
 		// start upload Verification
 
-		//form := parseQuery(cache[14:])
-		//if len(form) == 0 {
-		//	toErrorJson(conn, errors.New("key or value is error").Error())
-		//	return
-		//}
-
+		form := parseQuery(cache[:n])
+		if form.Get("appid").Value != "admin" && form.Get("secret").Value != "123456" {
+			toErrorJson(conn, "appid or secret is error")
+			return
+		}
 		name, _, err := formatFile(cache[:n])
 		if err != nil {
 			toErrorJson(conn, err.Error())
@@ -112,7 +132,7 @@ func handle(conn net.Conn, yourselves string) {
 			conn.Write([]byte("HTTP/1.1 200 OK\r\n"))
 			conn.Write([]byte("Server: FileServer\r\n"))
 			conn.Write([]byte("Date: " + time.Now().String() + "\r\n"))
-			conn.Write([]byte("Content-Type: " + con_type[string(Faye[len(Faye)-1])] + "\r\n\r\n"))
+			conn.Write([]byte("Content-Type: " + conType[string(Faye[len(Faye)-1])] + "\r\n\r\n"))
 			out := make([]byte, 10240)
 			for {
 				m, err := fs.Read(out)
@@ -129,34 +149,64 @@ end:
 		_ = conn.Close()
 	}
 }
+func responsePage(conn net.Conn, body []byte, prefix string) {
+	switch body[0] {
+
+	// response GET
+	case 'G':
+		if Equal(body[4:6], []byte(prefix)) {
+			conn.Write([]byte("HTTP/1.1 200 OK\r\n"))
+			conn.Write([]byte("Server: FileServer\r\n"))
+			conn.Write([]byte("Date: " + time.Now().String() + "\r\n"))
+			conn.Write([]byte("Content-Type: text/html\r\n\r\n"))
+			conn.Write([]byte(`<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta http-equiv="X-UA-Compatible" content="ie=edge"><title>Welcome</title></head><body><h3>This is FileSystemServer</h3> </body></html>`))
+		}
+	// response POST
+	case 'P':
+		if Equal(body[5:7], []byte(prefix)) {
+			conn.Write([]byte("HTTP/1.1 200 OK\r\n"))
+			conn.Write([]byte("Server: FileServer\r\n"))
+			conn.Write([]byte("Date: " + time.Now().String() + "\r\n"))
+			conn.Write([]byte("Content-Type: text/html\r\n\r\n"))
+			conn.Write([]byte(`<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta http-equiv="X-UA-Compatible" content="ie=edge"><title>Welcome</title></head><body><h3>This is FileSystemServer</h3> </body></html>`))
+		}
+	// response other
+	default:
+	}
+	_ = conn.Close()
+	return
+}
 func checkUploadOrDownload(body []byte) bool {
 	if Equal(body, []byte{47, 117, 112, 108, 111, 97, 100}) {
 		return true
 	}
 	return false
 }
-func parseQuery(body []byte) []FormData {
-	out := make([]FormData, 0)
+func parseQuery(body []byte) *Query {
+	q := new(Query)
+	q.Items = make(map[string]*QueryItem)
 	for k, v := range body {
-		if v == 32 {
-			d, _ := SplitString(body[:k], []byte{38})
-			if len(d) == 0 {
-				return nil
-			}
-			for _, v := range d {
-				c, _ := SplitString(v, []byte{61})
-				if len(c) == 0 {
-					continue
+		if v == 63 {
+			for j, c := range body[k+1:] {
+				if c == 32 {
+					d, _ := SplitString(body[k+1:j+k+1], []byte{38})
+					if len(d) == 0 {
+						return nil
+					}
+					for _, v := range d {
+						c, _ := SplitString(v, []byte{61})
+						if len(c) == 0 {
+							continue
+						}
+						q.Set(string(c[0]), string(c[1]))
+					}
+					break
 				}
-				out = append(out, FormData{
-					Appid:  string(c[0]),
-					Secret: string(c[1]),
-				})
 			}
 			break
 		}
 	}
-	return out
+	return q
 }
 func toSuccessJson(conn net.Conn, body string) {
 	if conn != nil {
