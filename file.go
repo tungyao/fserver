@@ -68,8 +68,11 @@ func client(yourselves string) {
 	}
 }
 func handle(conn net.Conn, yourselves string) {
+	// ********** MAX READ FILE SIZE ************
 	cache := make([]byte, 2048000)
+	// ---------- MAX READ FILE SIZE ------------
 	n, err := conn.Read(cache)
+	fmt.Println(n)
 	if err != nil && err != io.EOF {
 		log.Println(err, 1)
 	}
@@ -179,36 +182,11 @@ func responsePage(conn net.Conn, body []byte, prefix string) {
 	}
 }
 func checkUploadOrDownload(body []byte) bool {
+	fmt.Println(string(body))
 	if Equal(body, []byte{47, 117, 112, 108, 111, 97, 100}) {
 		return true
 	}
 	return false
-}
-func parseQuery(body []byte) *Query {
-	q := new(Query)
-	q.Items = make(map[string]*QueryItem)
-	for k, v := range body {
-		if v == 63 {
-			for j, c := range body[k+1:] {
-				if c == 32 {
-					d, _ := SplitString(body[k+1:j+k+1], []byte{38})
-					if len(d) == 0 {
-						return nil
-					}
-					for _, v := range d {
-						c, _ := SplitString(v, []byte{61})
-						if len(c) == 0 {
-							continue
-						}
-						q.Set(string(c[0]), string(c[1]))
-					}
-					break
-				}
-			}
-			break
-		}
-	}
-	return q
 }
 func toSuccessJson(conn net.Conn, body string) {
 	if conn != nil {
@@ -378,14 +356,14 @@ func formatFile(data []byte) ([]byte, int, error) {
 		return nil, 0, errors.New("FormData parsing error : trueData is 0")
 	}
 	files, _ := SplitString(fileName[:len(fileName)-1], []byte{'.'})
-	outName := sha(data[seek[1]:seek[2]][trueData : seek[2]-296-len(boundary)])
+	outName := sha(data[seek[2]/2 : seek[2]])
 	//fmt.Println(string(boundary))
 	//fmt.Println(trueData)
-	fmt.Println(fileSize)
-	fmt.Println(string(fileName))
+	//fmt.Println(fileSize)
+	//fmt.Println(string(fileName))
 	fmt.Println(seek)
 	// 239 191 189 239 191
-	//fmt.Println(string(data[seek[1]:seek[2]][trueData : seek[2]-296-len(boundary)]))
+	//fmt.Println((data[seek[1]:seek[2]][trueData : seek[2]-296-len(boundary)]))
 	//fmt.Println(outName + "." + string(files[1]))
 	fs, err := os.OpenFile(outName+"."+string(files[1]), os.O_CREATE|os.O_WRONLY, 666)
 	if err != nil {
@@ -397,4 +375,30 @@ func formatFile(data []byte) ([]byte, int, error) {
 	}
 	_ = fs.Close()
 	return []byte(outName + "." + string(files[1])), fileSize, nil
+}
+func parseQuery(body []byte) *Query {
+	q := new(Query)
+	q.Items = make(map[string]*QueryItem)
+	for k, v := range body {
+		if v == 63 {
+			for j, c := range body[k+1:] {
+				if c == 32 {
+					d, _ := SplitString(body[k+1:j+k+1], []byte{38})
+					if len(d) == 0 {
+						return nil
+					}
+					for _, v := range d {
+						c, _ := SplitString(v, []byte{61})
+						if len(c) == 0 {
+							continue
+						}
+						q.Set(string(c[0]), string(c[1]))
+					}
+					break
+				}
+			}
+			break
+		}
+	}
+	return q
 }
