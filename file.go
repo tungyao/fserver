@@ -72,7 +72,6 @@ func handle(conn net.Conn, yourselves string) {
 	cache := make([]byte, 2048000)
 	// ---------- MAX READ FILE SIZE ------------
 	n, err := conn.Read(cache)
-	fmt.Println(n)
 	if err != nil && err != io.EOF {
 		log.Println(err, 1)
 	}
@@ -182,7 +181,6 @@ func responsePage(conn net.Conn, body []byte, prefix string) {
 	}
 }
 func checkUploadOrDownload(body []byte) bool {
-	fmt.Println(string(body))
 	if Equal(body, []byte{47, 117, 112, 108, 111, 97, 100}) {
 		return true
 	}
@@ -361,10 +359,11 @@ func formatFile(data []byte) ([]byte, int, error) {
 	//fmt.Println(trueData)
 	//fmt.Println(fileSize)
 	//fmt.Println(string(fileName))
-	fmt.Println(seek)
+	//fmt.Println(seek)
 	// 239 191 189 239 191
 	//fmt.Println((data[seek[1]:seek[2]][trueData : seek[2]-296-len(boundary)]))
 	//fmt.Println(outName + "." + string(files[1]))
+	log.Println("upload :", fileName[:len(fileName)-1])
 	fs, err := os.OpenFile(outName+"."+string(files[1]), os.O_CREATE|os.O_WRONLY, 666)
 	if err != nil {
 		return nil, 0, err
