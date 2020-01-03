@@ -75,6 +75,17 @@ func handle(conn net.Conn, yourselves string) {
 	if err != nil && err != io.EOF {
 		log.Println(err, 1)
 	}
+	defer conn.Close()
+	if cache[0] == 'O' {
+		conn.Write([]byte("HTTP/1.1 204 No Content\r\n"))
+		conn.Write([]byte("Server: FileServer\r\n"))
+		conn.Write([]byte("Date: " + time.Now().String() + "\r\n"))
+		conn.Write([]byte("Access-Control-Allow-Origin: http://localhost:80\r\n"))
+		conn.Write([]byte("Access-Control-Allow-Headers: Content-Type\r\n"))
+		conn.Write([]byte("Access-control-Allow-Credentials: true\r\n"))
+		conn.Write([]byte("Access-control-Allow-Methods: GET, POST, OPTIONS\r\n\r\n"))
+		return
+	}
 	responsePage(conn, cache[:n], "/ ")
 	if conn == nil {
 		return
@@ -88,7 +99,6 @@ func handle(conn net.Conn, yourselves string) {
 		filename := cache[:n][1:129]
 		if len(filename) < 5 {
 			_, _ = conn.Write([]byte("error"))
-			_ = conn.Close()
 			return
 		}
 		for k, v := range filename {
@@ -106,16 +116,15 @@ func handle(conn net.Conn, yourselves string) {
 		_, _ = fs.Write(cache[129:n])
 		_ = fs.Close()
 		_, _ = conn.Write([]byte(yourselves + filer))
-		goto end
 	}
 	// upload
 	if checkUploadOrDownload(cache[5:12]) {
 		// start upload Verification
-		form := parseQuery(cache[:n])
-		if form.Get("appid").Value != "admin" && form.Get("secret").Value != "123456" {
-			toErrorJson(conn, "appid or secret is error")
-			return
-		}
+		//form := parseQuery(cache[:100])
+		//if form.Get("appid").Value != "admin" && form.Get("secret").Value != "123456" {
+		//	toErrorJson(conn, "appid or secret is error")
+		//	return
+		//}
 		name, _, err := formatFile(cache[:n])
 		if err != nil {
 			toErrorJson(conn, err.Error())
@@ -148,10 +157,6 @@ func handle(conn net.Conn, yourselves string) {
 			break
 		}
 	}
-end:
-	if conn != nil {
-		_ = conn.Close()
-	}
 }
 func responsePage(conn net.Conn, body []byte, prefix string) {
 	switch body[0] {
@@ -164,7 +169,6 @@ func responsePage(conn net.Conn, body []byte, prefix string) {
 			conn.Write([]byte("Date: " + time.Now().String() + "\r\n"))
 			conn.Write([]byte("Content-Type: text/html\r\n\r\n"))
 			conn.Write([]byte(`<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta http-equiv="X-UA-Compatible" content="ie=edge"><title>Welcome</title></head><body><h3>This is FileSystemServer</h3> </body></html>`))
-			_ = conn.Close()
 		}
 	// response POST
 	case 'P':
@@ -174,7 +178,6 @@ func responsePage(conn net.Conn, body []byte, prefix string) {
 			conn.Write([]byte("Date: " + time.Now().String() + "\r\n"))
 			conn.Write([]byte("Content-Type: text/html\r\n\r\n"))
 			conn.Write([]byte(`<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta http-equiv="X-UA-Compatible" content="ie=edge"><title>Welcome</title></head><body><h3>This is FileSystemServer</h3> </body></html>`))
-			_ = conn.Close()
 		}
 	// response other
 	default:
@@ -191,9 +194,9 @@ func toSuccessJson(conn net.Conn, body string) {
 		conn.Write([]byte("HTTP/1.1 200 OK\r\n"))
 		conn.Write([]byte("Server: FileServer\r\n"))
 		conn.Write([]byte("Date: " + time.Now().String() + "\r\n"))
+		conn.Write([]byte("Access-Control-Allow-Origin: *\r\n"))
 		conn.Write([]byte("Content-Type: Application/json\r\n\r\n"))
-		conn.Write([]byte(`{"t":1,"ok"":"yes","msg":"success","data":"` + body + `"}`))
-		conn.Close()
+		conn.Write([]byte(`{"t":1,"ok":"yes","msg":"success","data":"` + body + `"}`))
 	}
 	return
 }
@@ -202,9 +205,9 @@ func toErrorJson(conn net.Conn, msg string) {
 		conn.Write([]byte("HTTP/1.1 503 Service Unavailable\r\n"))
 		conn.Write([]byte("Server: FileServer\r\n"))
 		conn.Write([]byte("Date: " + time.Now().String() + "\r\n"))
+		conn.Write([]byte("Access-Control-Allow-Origin: *\r\n"))
 		conn.Write([]byte("Content-Type: Application/json\r\n\r\n"))
-		conn.Write([]byte(`{"t":0,"ok"":"no","msg":"` + msg + `","data":""}`))
-		conn.Close()
+		conn.Write([]byte(`{"t":0,"ok":"no","msg":"` + msg + `","data":""}`))
 	}
 	return
 }
