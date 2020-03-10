@@ -69,7 +69,7 @@ func client(yourselves string) {
 }
 func handle(conn net.Conn, yourselves string) {
 	// ********** MAX READ FILE SIZE ************
-	cache := make([]byte, 2048000)
+	cache := make([]byte, 20480000)
 	// ---------- MAX READ FILE SIZE ------------
 	n, err := conn.Read(cache)
 	if err != nil && err != io.EOF {
@@ -80,7 +80,7 @@ func handle(conn net.Conn, yourselves string) {
 		conn.Write([]byte("HTTP/1.1 204 No Content\r\n"))
 		conn.Write([]byte("Server: FileServer\r\n"))
 		conn.Write([]byte("Date: " + time.Now().String() + "\r\n"))
-		conn.Write([]byte("Access-Control-Allow-Origin: http://localhost:80\r\n"))
+		conn.Write([]byte("Access-Control-Allow-Origin: https://localhost:80\r\n"))
 		conn.Write([]byte("Access-Control-Allow-Headers: Content-Type\r\n"))
 		conn.Write([]byte("Access-control-Allow-Credentials: true\r\n"))
 		conn.Write([]byte("Access-control-Allow-Methods: GET, POST, OPTIONS\r\n\r\n"))
@@ -143,16 +143,26 @@ func handle(conn net.Conn, yourselves string) {
 			}
 			Faye, _ := SplitString(cache[5:k+5], []byte("."))
 			conn.Write([]byte("HTTP/1.1 200 OK\r\n"))
-			conn.Write([]byte("Server: FileServer\r\n"))
+			conn.Write([]byte("Server: FServer\r\n"))
 			conn.Write([]byte("Date: " + time.Now().String() + "\r\n"))
-			conn.Write([]byte("Content-Type: " + conType[string(Faye[len(Faye)-1])] + "\r\n\r\n"))
-			out := make([]byte, 10240)
-			for {
-				m, err := fs.Read(out)
-				if err == io.EOF || m == 0 {
-					break
+
+			fss, _ := fs.Stat()
+			if fss.Size() < 4096000 {
+				conn.Write([]byte("Content-Length: " + fmt.Sprint(fss.Size()) + "\r\n"))
+				conn.Write([]byte("Content-Type: " + conType[string(Faye[len(Faye)-1])] + "\r\n\r\n"))
+				out := make([]byte, fss.Size())
+				_, _ = fs.Read(out)
+				conn.Write(out)
+			} else {
+				conn.Write([]byte("Content-Type: application/octet-stream" + "\r\n\r\n"))
+				out := make([]byte, 102400)
+				for {
+					m, err := fs.Read(out)
+					if err == io.EOF || m == 0 {
+						break
+					}
+					_, _ = conn.Write(out[:m])
 				}
-				_, _ = conn.Write(out[:m])
 			}
 			break
 		}
