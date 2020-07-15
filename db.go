@@ -12,16 +12,16 @@ import (
 
 var DB *sql.DB
 var errx error
-var logg *log.Logger
 
 func init() {
-	fs,errx:=os.OpenFile("/var/log/fserver.log",os.O_RDWR|os.O_CREATE|os.O_APPEND,766)
+	fs, errx := os.OpenFile("/var/log/fserver.log", os.O_RDWR|os.O_CREATE|os.O_APPEND, 766)
 	if errx != nil {
 		log.Fatalln(errx)
 	}
-	logg = log.New(fs,"[fserver]",log.LstdFlags|log.Lshortfile|log.LUTC)
+	logg = log.New(fs, "[fserver]", log.LstdFlags|log.Lshortfile|log.LUTC)
 	logg.Println("hello")
 }
+
 type SaveTable struct {
 	Id         int    `json:"id"`
 	Name       string `json:"name"`
@@ -45,5 +45,5 @@ func AddFile(name, hashName string) {
 	if err != nil {
 		logg.Panicln(err)
 	}
-	logg.Println("save file :["+name+"]\t"+"=>["+hashName+"]")
+	logg.Println("save file :[" + name + "]\t" + "=>[" + hashName + "]")
 }

@@ -1,18 +1,16 @@
 package main
 
-
 import (
 	"crypto/sha1"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
-	"log"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
-
 )
 
 var conType = map[string]string{
@@ -34,14 +32,17 @@ var conType = map[string]string{
 	"exe":  "application/x-msdownload",
 }
 var logg *log.Logger
-var DOMAIN string
+var DOMAIN string = "http://127.0.0.1:7777/"
+var MOUNT string = "./mount/"
+var LOG = "./log/fserver.log"
+
 func init() {
-	fs,errx:=os.OpenFile("/var/log/fserver.log",os.O_RDWR|os.O_CREATE|os.O_APPEND,766)
+
+	fs, errx := os.OpenFile(LOG, os.O_RDWR|os.O_CREATE|os.O_APPEND, 766)
 	if errx != nil {
 		log.Fatalln(errx)
 	}
-	logg = log.New(fs,"[fserver]",log.LstdFlags|log.Lshortfile|log.LUTC)
-	DOMAIN = "http://123.207.198.60/";
+	logg = log.New(fs, "[fserver]", log.LstdFlags|log.Lshortfile|log.LUTC)
 }
 
 func sha(data string) string {
@@ -90,9 +91,9 @@ func main() {
 				if x := conType[Last(info.Name())]; x != "" {
 					fmt.Println(path)
 					if x == "image/png" || x == "image/jpeg" {
-						html += "<tr><td><img width='100' height='100' src='" + path + "'/><p>" + path + "</p></td><td><a href='/" + path + "'>download</a></td><td><input value='"+DOMAIN + path + "'/></td></tr>"
+						html += "<tr><td><img width='100' height='100' src='" + path + "'/><p>" + path + "</p></td><td><a href='/" + path + "'>download</a></td><td><input value='" + DOMAIN + path + "'/></td></tr>"
 					} else {
-						html += "<tr><td>" + info.Name() + "</td><td><a href='/" + path + "'>download</a></td><td><input value='"+DOMAIN + path + "'/></td></tr>"
+						html += "<tr><td>" + info.Name() + "</td><td><a href='/" + path + "'>download</a></td><td><input value='" + DOMAIN + path + "'/></td></tr>"
 
 					}
 				}
@@ -105,7 +106,7 @@ func main() {
 		writer.Header().Set("Cache-Control", "max-age=604800")
 		writer.Header().Add("Accept-Ranges", "bytes")
 		fileName := request.URL.Path
-		fs, err := os.Open("./" + fileName)
+		fs, err := os.Open(MOUNT + fileName)
 		defer fs.Close()
 		if os.IsNotExist(err) {
 			http.NotFound(writer, request)
@@ -205,10 +206,11 @@ func main() {
 		safe:
 			suffix, _ := SplitString([]byte(head.Filename), []byte("."))
 			var shaName = sha(head.Filename+time.Now().String()) + "." + string(suffix[len(suffix)-1])
-			fs, err := os.Open("./" + shaName)
+			fs, err := os.Open(MOUNT + request.FormValue("mount") + shaName)
 			if os.IsNotExist(err) {
 				fs.Close()
-				fs, err := os.OpenFile("./"+shaName, os.O_CREATE|os.O_WRONLY, 666)
+				os.Mkdir(MOUNT+request.FormValue("mount"), 666)
+				fs, err := os.OpenFile(MOUNT+request.FormValue("mount")+shaName, os.O_CREATE|os.O_WRONLY, 666)
 				if err != nil {
 					logg.Panicln(err)
 
@@ -218,23 +220,24 @@ func main() {
 				if err != nil {
 					logg.Panicln(err)
 				}
-				logg.Println("save file :["+head.Filename+"]\t"+"=>["+shaName+"]")
+				logg.Println("save file :[" + head.Filename + "]\t" + "=>[" + shaName + "]")
 				//AddFile(head.Filename, shaName)
 			}
+
 			writer.Header().Add("Content-Type", "application/json")
-			writer.Write([]byte(`{"t":1,"ok":"yes","msg":"success","url":"`+DOMAIN + shaName + `"}`))
+			writer.Write([]byte(`{"t":1,"ok":"yes","msg":"success","url":"` + DOMAIN + request.FormValue("mount") + shaName + `"}`))
 		}
 		if request.Method == "GET" {
 			writer.Write([]byte(`<!DOCTYPE html>
 <html>
 <head>
   <title>FilePond from CDN</title>
-<link href="`+DOMAIN+`40abc96eb3a5d4a496083dcb0ac4b6d58515537d.css" rel="stylesheet">
+<link href="` + DOMAIN + `40abc96eb3a5d4a496083dcb0ac4b6d58515537d.css" rel="stylesheet">
 
 </head>
 <body>
   <input type="file" class="filepond">
-<script src="`+DOMAIN+`5e4ec15f0335954186c76f7711f6ab9f1c0be308.js"></script>
+<script src="` + DOMAIN + `5e4ec15f0335954186c76f7711f6ab9f1c0be308.js"></script>
   <script>
  FilePond.parse(document.body);
 FilePond.setOptions({
