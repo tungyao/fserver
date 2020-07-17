@@ -32,7 +32,7 @@ var conType = map[string]string{
 	"exe":  "application/x-msdownload",
 }
 var logg *log.Logger
-var DOMAIN string = "http://127.0.0.1:7777/"
+var DOMAIN string = "http://123.207.198.60/"
 var MOUNT string = "./mount/"
 var LOG = "./log/fserver.log"
 
@@ -87,13 +87,12 @@ func main() {
 	http.HandleFunc("/", func(writer http.ResponseWriter, request *http.Request) {
 		if request.URL.Path == "/" {
 			html := "<table><tr><td>name</td><td>operation</td><td>url</td></tr>"
-			filepath.Walk(".", func(path string, info os.FileInfo, err error) error {
+			filepath.Walk(MOUNT[:len(MOUNT)-1], func(path string, info os.FileInfo, err error) error {
 				if x := conType[Last(info.Name())]; x != "" {
-					fmt.Println(path)
-					if x == "image/png" || x == "image/jpeg" {
-						html += "<tr><td><img width='100' height='100' src='" + path + "'/><p>" + path + "</p></td><td><a href='/" + path + "'>download</a></td><td><input value='" + DOMAIN + path + "'/></td></tr>"
+					if x == "image/png" || x == "image/jpeg" || x == "audio/mp3" {
+						html += "<tr><td><img width='100' height='100' src='" + DOMAIN + path[len(MOUNT):] + "'/><p>" + path[len(MOUNT):] + "</p></td><td><a href='/" + path[len(MOUNT):] + "'>download</a></td><td><input value='" + DOMAIN + path[len(MOUNT):] + "'/></td></tr>"
 					} else {
-						html += "<tr><td>" + info.Name() + "</td><td><a href='/" + path + "'>download</a></td><td><input value='" + DOMAIN + path + "'/></td></tr>"
+						html += "<tr><td>" + info.Name() + "</td><td><a href='/" + path[len(MOUNT):] + "'>download</a></td><td><input value='" + DOMAIN + path[len(MOUNT):] + "'/></td></tr>"
 
 					}
 				}
@@ -106,7 +105,7 @@ func main() {
 		writer.Header().Set("Cache-Control", "max-age=604800")
 		writer.Header().Add("Accept-Ranges", "bytes")
 		fileName := request.URL.Path
-		fs, err := os.Open(MOUNT + fileName)
+		fs, err := os.Open(MOUNT[:len(MOUNT)-1] + fileName)
 		defer fs.Close()
 		if os.IsNotExist(err) {
 			http.NotFound(writer, request)
@@ -153,7 +152,7 @@ func main() {
 				writer.WriteHeader(http.StatusInternalServerError)
 				return
 			}
-			n := 40960
+			n := 409600
 			buf := make([]byte, n)
 			for {
 				if end-start+1 < int64(n) {
