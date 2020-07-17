@@ -1,7 +1,9 @@
 package main
 
 import (
+	"crypto/md5"
 	"crypto/sha1"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"log"
@@ -184,11 +186,6 @@ func main() {
 			writer.Header().Set("Access-Control-Allow-Origin", "*")
 			writer.Header().Set("Access-Control-Allow-Methods", "POST")
 			request.ParseMultipartForm(204800000)
-			// request.ParseForm()
-			// mr,err:=request.MultipartReader()
-			// from,err:=mr.ReadForm(204800000)
-			// frs:=from.File["file"]
-			// fmt.Println(frs)
 			file, head, err := request.FormFile("file")
 			if err != nil {
 				// log.Panicln(err)
@@ -205,27 +202,37 @@ func main() {
 			goto safe
 		safe:
 			suffix, _ := SplitString([]byte(head.Filename), []byte("."))
-			var shaName = sha(head.Filename+time.Now().String()) + "." + string(suffix[len(suffix)-1])
-			fs, err := os.Open(MOUNT + request.FormValue("mount") + shaName)
+			mountDir := request.FormValue("mount")
+			if mountDir == "" {
+				mountDir = request.URL.Query().Get("dir")
+			}
+			if mountDir != "" {
+				mountDir += "/"
+			}
+			md5 := md5.New()
+			tr := io.TeeReader(file, md5)
+			MD5Str := hex.EncodeToString(md5.Sum(nil))
+			var shaName = MD5Str + "." + string(suffix[len(suffix)-1])
+			fs, err := os.Open(MOUNT + mountDir + shaName)
+			defer file.Close()
 			if os.IsNotExist(err) {
 				fs.Close()
 				os.Mkdir(MOUNT+request.FormValue("mount"), 666)
-				fs, err := os.OpenFile(MOUNT+request.FormValue("mount")+shaName, os.O_CREATE|os.O_WRONLY, 666)
+				fs, err := os.OpenFile(MOUNT+mountDir+shaName, os.O_CREATE|os.O_WRONLY, 666)
 				if err != nil {
 					logg.Panicln(err)
 
 				}
-				_, err = io.Copy(fs, file)
+				_, err = io.Copy(fs, tr)
 				defer fs.Close()
 				if err != nil {
 					logg.Panicln(err)
 				}
-				logg.Println("save file :[" + head.Filename + "]\t" + "=>[" + shaName + "]")
-				//AddFile(head.Filename, shaName)
+				logg.Println("save file :[" + head.Filename + "]\t" + "=>[" + MOUNT + mountDir + MD5Str + "." + string(suffix[len(suffix)-1]) + "]")
 			}
-
+			writer.Write([]byte(`{"t":1,"ok":"yes","msg":"success","url":"` + DOMAIN + mountDir + MD5Str + "." + string(suffix[len(suffix)-1]) + `"}`))
 			writer.Header().Add("Content-Type", "application/json")
-			writer.Write([]byte(`{"t":1,"ok":"yes","msg":"success","url":"` + DOMAIN + request.FormValue("mount") + shaName + `"}`))
+			return
 		}
 		if request.Method == "GET" {
 			writer.Write([]byte(`<!DOCTYPE html>
@@ -246,7 +253,8 @@ FilePond.setOptions({
   </script>
 
 </body>
-</html>`))
+</html>
+			`))
 		}
 	})
 	if err := http.ListenAndServe(":7777", nil); err != nil {
