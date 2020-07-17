@@ -115,7 +115,6 @@ func main() {
 			var start, end int64
 			suffix, _ := SplitString([]byte(fileName), []byte("."))
 			fi, _ := fs.Stat()
-			writer.Header().Set("Content-Length", strconv.FormatInt(fi.Size(), 10))
 			writer.Header().Add("Etag", `T/"`+string(suffix[0][1:])+`"`)
 			writer.Header().Add("Last-Modify", fi.ModTime().Format(time.RFC1123))
 			writer.Header().Set("Content-Type", conType[Last(fi.Name())])
@@ -123,7 +122,6 @@ func main() {
 				writer.WriteHeader(304)
 			}
 			if r := request.Header.Get("Range"); r != "" {
-				writer.WriteHeader(206)
 				if strings.Contains(r, "bytes=") && strings.Contains(r, "-") {
 
 					fmt.Sscanf(r, "bytes=%d-%d", &start, &end)
@@ -133,16 +131,19 @@ func main() {
 					if start > end || start < 0 || end < 0 || end >= fi.Size() {
 						writer.WriteHeader(http.StatusRequestedRangeNotSatisfiable)
 						logg.Println("sendFile2 start:", start, "end:", end, "size:", fi.Size())
+						writer.WriteHeader(http.StatusBadRequest)
 						return
 					}
-					writer.Header().Add("Content-Length", strconv.FormatInt(end-start+1, 10))
+					writer.Header().Set("Content-Length", strconv.FormatInt(end-start+1, 10))
 					writer.Header().Add("Content-Range", fmt.Sprintf("bytes %v-%v/%v", start, end, fi.Size()))
-					writer.WriteHeader(http.StatusPartialContent)
 				} else {
+					writer.Header().Set("Content-Length", strconv.FormatInt(fi.Size(), 10))
 					writer.WriteHeader(http.StatusBadRequest)
 					return
 				}
+				writer.WriteHeader(206)
 			} else {
+				writer.Header().Set("Content-Length", strconv.FormatInt(fi.Size(), 10))
 				start = 0
 				end = fi.Size() - 1
 			}
