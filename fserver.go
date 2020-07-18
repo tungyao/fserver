@@ -7,7 +7,12 @@ import (
 	"fmt"
 	"html/template"
 	"image"
+	"image/color"
+	"image/draw"
+	_ "image/gif"
 	"image/jpeg"
+	_ "image/jpeg"
+	_ "image/png"
 	"io"
 	"log"
 	"net/http"
@@ -120,7 +125,7 @@ func compressImageResource(filename string, q int, reader io.Reader) string {
 	if Last(filename) == "jpg" { // jpg
 		img, _, err := image.Decode(reader)
 		if err != nil {
-			log.Panicln(err)
+			return MOUNT + filename
 		}
 		fname := strconv.Itoa(q) + "_" + filename
 		if fs, err := os.Open(QUALITY + fname); err != nil {
@@ -130,18 +135,53 @@ func compressImageResource(filename string, q int, reader io.Reader) string {
 			fs.Close()
 			fs, err := os.OpenFile(QUALITY+fname, os.O_CREATE|os.O_RDWR, 666)
 			if err != nil {
-				log.Panicln(err)
+				return MOUNT + filename
 			}
 			err = jpeg.Encode(fs, img, &jpeg.Options{Quality: q})
 			fs.Close()
 			if err != nil {
-				log.Panicln(err)
+				return MOUNT + filename
 			}
 			return QUALITY + fname
 		} else {
 			fs.Close()
 			return QUALITY + fname
 		}
+	}
+	if Last(filename) == "png" {
+		imgSrc, _, err := image.Decode(reader)
+		if err != nil {
+			log.Panicln(err)
+			return MOUNT + filename
+		}
+		fname := strconv.Itoa(q) + "_" + filename
+		if fs, err := os.Open(QUALITY + fname); err != nil {
+			if os.IsExist(err) {
+				log.Panicln(err)
+
+				return MOUNT + filename
+			}
+			fs.Close()
+			fs, err := os.OpenFile(QUALITY+fname, os.O_CREATE|os.O_RDWR, 666)
+			if err != nil {
+				log.Panicln(err)
+
+				return MOUNT + filename
+			}
+			newImg := image.NewRGBA(imgSrc.Bounds())
+			draw.Draw(newImg, newImg.Bounds(), &image.Uniform{C: color.White}, image.Point{}, draw.Src)
+			draw.Draw(newImg, newImg.Bounds(), imgSrc, imgSrc.Bounds().Min, draw.Over)
+			err = jpeg.Encode(fs, newImg, &jpeg.Options{Quality: q})
+			if err != nil {
+				return MOUNT + filename
+			}
+			fs.Close()
+			return QUALITY + fname
+		} else {
+			fs.Close()
+			return QUALITY + fname
+		}
+
 	}
 	return MOUNT + filename
 }
@@ -171,7 +211,6 @@ func main() {
 		writer.Header().Add("Accept-Ranges", "bytes")
 		fileName := request.URL.Path
 		// 获取到质量信息
-
 		fs, err := os.Open(MOUNT[:len(MOUNT)-1] + fileName)
 		defer fs.Close()
 		if os.IsNotExist(err) {
@@ -287,7 +326,7 @@ func main() {
 			}
 			md5 := md5.New()
 			tr := io.TeeReader(file, md5)
-			MD5Str := hex.EncodeToString(md5.Sum(nil))
+			MD5Str := hex.EncodeToString(md5.Sum([]byte(strconv.Itoa(int(head.Size)))))
 			var shaName = MD5Str + "." + string(suffix[len(suffix)-1])
 			fs, err := os.Open(MOUNT + mountDir + shaName)
 			defer file.Close()
@@ -304,9 +343,9 @@ func main() {
 				if err != nil {
 					logg.Panicln(err)
 				}
-				logg.Println("save file :[" + head.Filename + "]\t" + "=>[" + MOUNT + mountDir + MD5Str + "." + string(suffix[len(suffix)-1]) + "]")
+				logg.Println("save file :[" + head.Filename + "]\t" + "=>[" + MOUNT + mountDir + shaName + "]")
 			}
-			writer.Write([]byte(`{"t":1,"ok":"yes","msg":"success","url":"` + DOMAIN + mountDir + MD5Str + "." + string(suffix[len(suffix)-1]) + `"}`))
+			writer.Write([]byte(`{"t":1,"ok":"yes","msg":"success","url":"` + DOMAIN + mountDir + shaName + `"}`))
 			writer.Header().Add("Content-Type", "application/json")
 			return
 		}
