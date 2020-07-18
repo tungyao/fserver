@@ -5,6 +5,7 @@ import (
 	"crypto/sha1"
 	"encoding/hex"
 	"fmt"
+	"html/template"
 	"io"
 	"log"
 	"net/http"
@@ -34,12 +35,16 @@ var conType = map[string]string{
 	"exe":  "application/x-msdownload",
 }
 var logg *log.Logger
-var DOMAIN string = "http://123.207.198.60/"
-var MOUNT string = "./mount/"
-var LOG = "./log/fserver.log"
+
+const (
+	DOMAIN = "http://127.0.0.1:7777/"
+	MOUNT  = "./mount/"
+	LOG    = "./log/fserver.log"
+	USER   = "admin"
+	PASS   = "admin123"
+)
 
 func init() {
-
 	fs, errx := os.OpenFile(LOG, os.O_RDWR|os.O_CREATE|os.O_APPEND, 766)
 	if errx != nil {
 		log.Fatalln(errx)
@@ -85,23 +90,48 @@ func Last(s string) string {
 	a := strings.Split(s, ".")
 	return a[len(a)-1]
 }
+func BasicAuth(writer http.ResponseWriter, request *http.Request) bool {
+	user, pass, ok := request.BasicAuth()
+	if !ok {
+		writer.Header().Set("WWW-Authenticate", `Basic realm="Restricted"`)
+		writer.WriteHeader(http.StatusUnauthorized)
+		return true
+	}
+	if user != USER && pass != PASS {
+		http.Error(writer, " need authorized!", http.StatusUnauthorized)
+		return true
+	}
+	return false
+}
+func OutHtml() {
+
+}
+
+type FileDirs struct {
+	Name string `json:"name"`
+	Url  string `json:"url"`
+}
+
 func main() {
 	http.HandleFunc("/", func(writer http.ResponseWriter, request *http.Request) {
 		if request.URL.Path == "/" {
-			html := "<table><tr><td>name</td><td>operation</td><td>url</td></tr>"
+			// 校验用户名
+			if BasicAuth(writer, request) {
+				return
+			}
+			arr := make([]FileDirs, 0)
 			filepath.Walk(MOUNT[:len(MOUNT)-1], func(path string, info os.FileInfo, err error) error {
-				if x := conType[Last(info.Name())]; x != "" {
-					if x == "image/png" || x == "image/jpeg" || x == "audio/mp3" {
-						html += "<tr><td><img width='100' height='100' src='" + DOMAIN + path[len(MOUNT):] + "'/><p>" + path[len(MOUNT):] + "</p></td><td><a href='/" + path[len(MOUNT):] + "'>download</a></td><td><input value='" + DOMAIN + path[len(MOUNT):] + "'/></td></tr>"
-					} else {
-						html += "<tr><td>" + info.Name() + "</td><td><a href='/" + path[len(MOUNT):] + "'>download</a></td><td><input value='" + DOMAIN + path[len(MOUNT):] + "'/></td></tr>"
-
-					}
+				if !info.IsDir() {
+					truePath := path[len(MOUNT)-2:]
+					arr = append(arr, FileDirs{
+						Name: truePath,
+						Url:  DOMAIN + truePath,
+					})
 				}
 				return nil
 			})
-			html += "</table>"
-			writer.Write([]byte(html))
+			pf, _ := template.ParseFiles("./dist/index.html")
+			pf.Execute(writer, arr)
 			return
 		}
 		writer.Header().Set("Cache-Control", "max-age=604800")
