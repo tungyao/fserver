@@ -6,6 +6,8 @@ import (
 	"encoding/hex"
 	"fmt"
 	"html/template"
+	"image"
+	"image/jpeg"
 	"io"
 	"log"
 	"net/http"
@@ -37,11 +39,12 @@ var conType = map[string]string{
 var logg *log.Logger
 
 const (
-	DOMAIN = "http://127.0.0.1:7777/"
-	MOUNT  = "./mount/"
-	LOG    = "./log/fserver.log"
-	USER   = "admin"
-	PASS   = "admin123"
+	DOMAIN  = "http://123.207.198.60/"
+	MOUNT   = "./mount/"
+	QUALITY = "./quality/"
+	LOG     = "./log/fserver.log"
+	USER    = "admin"
+	PASS    = "admin123"
 )
 
 func init() {
@@ -112,6 +115,36 @@ type FileDirs struct {
 	Url  string `json:"url"`
 }
 
+// 压缩图片
+func compressImageResource(filename string, q int, reader io.Reader) string {
+	if Last(filename) == "jpg" { // jpg
+		img, _, err := image.Decode(reader)
+		if err != nil {
+			log.Panicln(err)
+		}
+		fname := strconv.Itoa(q) + "_" + filename
+		if fs, err := os.Open(QUALITY + fname); err != nil {
+			if os.IsExist(err) {
+				return MOUNT + filename
+			}
+			fs.Close()
+			fs, err := os.OpenFile(QUALITY+fname, os.O_CREATE|os.O_RDWR, 666)
+			if err != nil {
+				log.Panicln(err)
+			}
+			err = jpeg.Encode(fs, img, &jpeg.Options{Quality: q})
+			fs.Close()
+			if err != nil {
+				log.Panicln(err)
+			}
+			return QUALITY + fname
+		} else {
+			fs.Close()
+			return QUALITY + fname
+		}
+	}
+	return MOUNT + filename
+}
 func main() {
 	http.HandleFunc("/", func(writer http.ResponseWriter, request *http.Request) {
 		if request.URL.Path == "/" {
@@ -137,12 +170,25 @@ func main() {
 		writer.Header().Set("Cache-Control", "max-age=604800")
 		writer.Header().Add("Accept-Ranges", "bytes")
 		fileName := request.URL.Path
+		// 获取到质量信息
+
 		fs, err := os.Open(MOUNT[:len(MOUNT)-1] + fileName)
 		defer fs.Close()
 		if os.IsNotExist(err) {
 			http.NotFound(writer, request)
 			return
 		} else {
+			if que := request.URL.Query().Get("quality"); que != "" {
+				quality, err := strconv.Atoi(que)
+				if err == nil {
+					fpath := compressImageResource(fileName[1:], quality, fs)
+					fs.Close()
+					fs, err = os.Open(fpath)
+					if err != nil {
+						log.Panicln(err)
+					}
+				}
+			}
 			var start, end int64
 			suffix, _ := SplitString([]byte(fileName), []byte("."))
 			fi, _ := fs.Stat()
