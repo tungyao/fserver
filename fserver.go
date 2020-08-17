@@ -40,16 +40,19 @@ var conType = map[string]string{
 	"7z":   "application/octet-stream",
 	"ico":  "application/x-ico",
 	"exe":  "application/x-msdownload",
+	"mov":  "video/quicktime",
+	"js":   "application/x-javascript",
+	"css":  "text/css",
 }
 var logg *log.Logger
 
 const (
-	DOMAIN  = "http://123.207.198.60/"
+	DOMAIN  = "https://you_domino/"
 	MOUNT   = "./mount/"
 	QUALITY = "./quality/"
 	LOG     = "./log/fserver.log"
-	USER    = "admin"
-	PASS    = "admin123"
+	USER    = "you_name"
+	PASS    = "you_password"
 )
 
 func init() {
@@ -233,7 +236,8 @@ func main() {
 			fi, _ := fs.Stat()
 			writer.Header().Add("Etag", `T/"`+string(suffix[0][1:])+`"`)
 			writer.Header().Add("Last-Modify", fi.ModTime().Format(time.RFC1123))
-			writer.Header().Set("Content-Type", conType[Last(fi.Name())])
+			fmt.Println(Last(fi.Name()))
+			writer.Header().Add("Content-Type", conType[Last(fi.Name())])
 			if cc := request.Header.Get("Cache-Control"); cc != "" && cc != "no-cache" {
 				writer.WriteHeader(304)
 			}
@@ -269,7 +273,7 @@ func main() {
 				writer.WriteHeader(http.StatusInternalServerError)
 				return
 			}
-			n := 409600
+			n := 4096000
 			buf := make([]byte, n)
 			for {
 				if end-start+1 < int64(n) {
@@ -372,7 +376,7 @@ FilePond.setOptions({
 			`))
 		}
 	})
-	if err := http.ListenAndServe(":7777", nil); err != nil {
+	if err := http.ListenAndServe(":8105", nil); err != nil {
 		logg.Panicln(err)
 	}
 }

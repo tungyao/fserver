@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+          content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <link href="https://cdn.bootcdn.net/ajax/libs/twitter-bootstrap/5.0.0-alpha1/css/bootstrap.min.css" rel="stylesheet">
+    <title>fserver index</title>
+</head>
+<body>
+<div class="container">
+    <table class="table table-light">
+        <thead>
+        <tr>
+            <td>name</td>
+            <td>url</td>
+            <td>operation</td>
+        </tr>
+        </thead>
+        <tbody>
+        {{range $v :=  .}}
+            <tr>
+                <td><img src="{{$v.Url}}" height="100"></td>
+                <td><input type="text" value="{{$v.Name}}" class="form-control"></td>
+                <td><input type="text" value="{{$v.Url}}" class="form-control"></td>
+                <td><a download="{{$v.Url}}" href="{{$v.Url}}" class="btn btn-primary">download</a></td>
+            </tr>
+        {{end}}
+        </tbody>
+    </table>
+</div>
+
+</body>
+</html>
