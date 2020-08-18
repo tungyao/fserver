@@ -4,6 +4,7 @@ import (
 	"crypto/md5"
 	"crypto/sha1"
 	"encoding/hex"
+	"flag"
 	"fmt"
 	"html/template"
 	"image"
@@ -47,12 +48,15 @@ var conType = map[string]string{
 var logg *log.Logger
 
 const (
-	DOMAIN  = "https://you_domino/"
 	MOUNT   = "./mount/"
 	QUALITY = "./quality/"
 	LOG     = "./log/fserver.log"
-	USER    = "you_name"
-	PASS    = "you_password"
+)
+
+var (
+	DOMAIN string
+	USER   string
+	PASS   string
 )
 
 func init() {
@@ -61,6 +65,10 @@ func init() {
 		log.Fatalln(errx)
 	}
 	logg = log.New(fs, "[fserver]", log.LstdFlags|log.Lshortfile|log.LUTC)
+	flag.Parse()
+	flag.StringVar(&DOMAIN, "domino", "https://you_domino/", "")
+	flag.StringVar(&USER, "user", "you_name", "")
+	flag.StringVar(&PASS, "pass", "you_pass", "")
 }
 
 func sha(data string) string {
