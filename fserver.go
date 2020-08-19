@@ -4,6 +4,7 @@ import (
 	"crypto/md5"
 	"crypto/sha1"
 	"encoding/hex"
+	"flag"
 	"fmt"
 	"html/template"
 	"image"
@@ -47,15 +48,22 @@ var conType = map[string]string{
 var logg *log.Logger
 
 const (
-	DOMAIN  = "https://you_domino/"
 	MOUNT   = "./mount/"
 	QUALITY = "./quality/"
 	LOG     = "./log/fserver.log"
-	USER    = "you_name"
-	PASS    = "you_password"
+)
+
+var (
+	DOMAIN = ""
+	USER   = ""
+	PASS   = ""
 )
 
 func init() {
+	flag.Parse()
+	flag.StringVar(&DOMAIN, "domino", "http://localhost/", "")
+	flag.StringVar(&USER, "user", "user", "user name")
+	flag.StringVar(&PASS, "pass", "pass123", "password")
 	fs, errx := os.OpenFile(LOG, os.O_RDWR|os.O_CREATE|os.O_APPEND, 766)
 	if errx != nil {
 		log.Fatalln(errx)
