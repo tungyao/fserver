@@ -54,16 +54,16 @@ const (
 )
 
 var (
-	DOMAIN = ""
-	USER   = ""
-	PASS   = ""
+	DOMAIN string
+	USER   string
+	PASS   string
 )
 
 func init() {
 	flag.Parse()
-	flag.StringVar(&DOMAIN, "domino", "http://localhost/", "")
-	flag.StringVar(&USER, "user", "user", "user name")
-	flag.StringVar(&PASS, "pass", "pass123", "password")
+	flag.StringVar(&DOMAIN, "domino", "https://you_domino/", "")
+	flag.StringVar(&USER, "user", "you_name", "")
+	flag.StringVar(&PASS, "pass", "you_pass", "")
 	fs, errx := os.OpenFile(LOG, os.O_RDWR|os.O_CREATE|os.O_APPEND, 766)
 	if errx != nil {
 		log.Fatalln(errx)
