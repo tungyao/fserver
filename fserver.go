@@ -60,7 +60,6 @@ var (
 )
 
 func init() {
-	flag.Parse()
 	flag.StringVar(&DOMAIN, "domino", "https://you_domino/", "")
 	flag.StringVar(&USER, "user", "you_name", "")
 	flag.StringVar(&PASS, "pass", "you_pass", "")
@@ -197,6 +196,8 @@ func compressImageResource(filename string, q int, reader io.Reader) string {
 	return MOUNT + filename
 }
 func main() {
+	flag.Parse()
+	fmt.Println(DOMAIN, USER, PASS)
 	http.HandleFunc("/", func(writer http.ResponseWriter, request *http.Request) {
 		if request.URL.Path == "/" {
 			// 校验用户名
