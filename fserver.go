@@ -61,6 +61,23 @@ const (
 	PASS    = "admin123"
 )
 
+var (
+	DOMAIN string
+	USER   string
+	PASS   string
+)
+
+func init() {
+	flag.StringVar(&DOMAIN, "domino", "https://you_domino/", "")
+	flag.StringVar(&USER, "user", "you_name", "")
+	flag.StringVar(&PASS, "pass", "you_pass", "")
+	fs, errx := os.OpenFile(LOG, os.O_RDWR|os.O_CREATE|os.O_APPEND, 766)
+	if errx != nil {
+		log.Fatalln(errx)
+	}
+	logg = log.New(fs, "[fserver]", log.LstdFlags|log.Lshortfile|log.LUTC)
+}
+
 func sha(data string) string {
 	t := sha1.New()
 	t.Write([]byte(data))
@@ -187,6 +204,8 @@ func compressImageResource(filename string, q int, reader io.Reader) string {
 	return MOUNT + filename
 }
 func main() {
+	flag.Parse()
+	fmt.Println(DOMAIN, USER, PASS)
 	http.HandleFunc("/", func(writer http.ResponseWriter, request *http.Request) {
 		if request.URL.Path == "/" {
 			// 校验用户名

@@ -5,9 +5,15 @@ RUN mkdir -p /go/src/app/log
 RUN mkdir -p /go/src/app/mount
 RUN mkdir -p /go/src/app/quelity
 RUN touch /go/src/app/log/fserver.log
-RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories
-RUN apk add git
-RUN go get -d -v ./...
 RUN go build fserver.go
+RUN ls
 EXPOSE 8105:8105
-CMD ["/go/src/app/ferver"]
+
+ARG domino=localhost\/
+ENV domino $domino
+ARG user=admin
+ENV user $user
+ARG pass=admin
+ENV pass $user
+
+CMD /go/src/app/fserver -domino=${domino} -user=${user} -pass=${pass}
