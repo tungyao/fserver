@@ -20,35 +20,40 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"log"
 )
 
-var conType = map[string]string{
-	"png":  "image/png",
-	"jpg":  "image/jpeg",
-	"gif":  "image/gif",
-	"svg":  "text/xml",
-	"txt":  "text/plain",
-	"zip":  "application/x-zip-compressed",
-	"mp4":  "video/mpeg4",
-	"pdf":  "application/pdf",
-	"avi":  "video/avi",
-	"mp3":  "audio/mp3",
-	"json": "application/json",
-	"gz":   "application/octet-stream",
-	"tar":  "application/octet-stream",
-	"7z":   "application/octet-stream",
-	"ico":  "application/x-ico",
-	"exe":  "application/x-msdownload",
-	"mov":  "video/quicktime",
-	"js":   "application/x-javascript",
-	"css":  "text/css",
-}
+var (
+	conType = map[string]string{
+		"png":  "image/png",
+		"jpg":  "image/jpeg",
+		"gif":  "image/gif",
+		"svg":  "text/xml",
+		"txt":  "text/plain",
+		"zip":  "application/x-zip-compressed",
+		"mp4":  "video/mpeg4",
+		"pdf":  "application/pdf",
+		"avi":  "video/avi",
+		"mp3":  "audio/mp3",
+		"json": "application/json",
+		"gz":   "application/octet-stream",
+		"tar":  "application/octet-stream",
+		"7z":   "application/octet-stream",
+		"ico":  "application/x-ico",
+		"exe":  "application/x-msdownload",
+		"mov":  "video/quicktime",
+		"js":   "application/x-javascript",
+		"css":  "text/css",
+	}
+	storage sync.Map
+)
 
 const (
-	DOMAIN  = "https://cdn.tencent.oreorigin.com/"
+	// DOMAIN  = "https://cdn.tencent.oreorigin.com/"
+	DOMAIN  = "http://localhost:8105/"
 	MOUNT   = "./mount/"
 	QUALITY = "./quality/"
 	LOG     = "./log/fserver.log"
@@ -266,6 +271,7 @@ func main() {
 				writer.WriteHeader(http.StatusInternalServerError)
 				return
 			}
+			storage.Store(fileName, MOUNT[:len(MOUNT)-1]+fileName)
 			n := 4096000
 			buf := make([]byte, n)
 			for {
@@ -371,7 +377,8 @@ FilePond.setOptions({
 	})
 	// 对外api接口
 	http.HandleFunc("/api", func(writer http.ResponseWriter, request *http.Request) {
-		if search := request.URL.Query().Get("name"); search != "" {
+		// 搜索
+		if search := request.URL.Query().Get("search"); search != "" {
 			arr := make([]FileDirs, 0)
 			filepath.Walk(MOUNT[:len(MOUNT)-1], func(path string, info os.FileInfo, err error) error {
 				if !info.IsDir() {
@@ -387,18 +394,30 @@ FilePond.setOptions({
 			writer.Write(out)
 			return
 		}
-		if tree := request.URL.Query().Get("name"); tree != "" {
+		// 指定目录下所有文件
+		if tree := request.URL.Query().Get("dir"); tree != "" {
 			arr := make([]FileDirs, 0)
+			_, err := os.Stat(MOUNT[:len(MOUNT)-1] + tree)
+			if err != nil {
+				if os.IsNotExist(err) {
+					_ = os.MkdirAll(MOUNT[:len(MOUNT)-1]+tree, 755)
+					writer.Write([]byte("[]"))
+					return
+				}
+			}
 			filepath.Walk(MOUNT[:len(MOUNT)-1]+tree, func(path string, info os.FileInfo, err error) error {
 				if !info.IsDir() {
 					truePath := path[len(MOUNT)-2:]
 					arr = append(arr, FileDirs{
 						Name: truePath,
-						Url:  DOMAIN + truePath,
+						Url:  DOMAIN + strings.ReplaceAll(truePath, `\`, "/"),
 					})
 				}
 				return nil
 			})
+			out, _ := json.Marshal(arr)
+			writer.Write(out)
+			return
 		}
 		arr := make([]FileDirs, 0)
 		filepath.Walk(MOUNT[:len(MOUNT)-1], func(path string, info os.FileInfo, err error) error {
