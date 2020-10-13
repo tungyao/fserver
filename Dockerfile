@@ -9,4 +9,5 @@ RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories
 RUN apk add git
 RUN go get -d -v ./...
 RUN go build fserver.go
+EXPOSE 8105:8105
 CMD ["/go/src/app/ferver"]
