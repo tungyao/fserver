@@ -5,6 +5,7 @@ import (
 	"crypto/sha1"
 	"encoding/hex"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"html/template"
 	"image"
@@ -23,7 +24,7 @@ import (
 	"sync"
 	"time"
 
-	"log"
+	logg "log"
 )
 
 var (
@@ -51,7 +52,7 @@ var (
 	storage sync.Map
 )
 
-const (
+var (
 	// DOMAIN  = "https://cdn.tencent.oreorigin.com/"
 	DOMAIN  = "http://localhost:8105/"
 	MOUNT   = "./mount/"
@@ -59,12 +60,7 @@ const (
 	LOG     = "./log/fserver.log"
 	USER    = "admin"
 	PASS    = "admin123"
-)
-
-var (
-	DOMAIN string
-	USER   string
-	PASS   string
+	log     *logg.Logger
 )
 
 func init() {
@@ -73,9 +69,9 @@ func init() {
 	flag.StringVar(&PASS, "pass", "you_pass", "")
 	fs, errx := os.OpenFile(LOG, os.O_RDWR|os.O_CREATE|os.O_APPEND, 766)
 	if errx != nil {
-		log.Fatalln(errx)
+		logg.Fatalln(errx)
 	}
-	logg = log.New(fs, "[fserver]", log.LstdFlags|log.Lshortfile|log.LUTC)
+	log = logg.New(fs, "[fserver]", logg.LstdFlags|logg.Lshortfile|logg.LUTC)
 }
 
 func sha(data string) string {
