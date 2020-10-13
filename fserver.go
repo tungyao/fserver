@@ -4,7 +4,7 @@ import (
 	"crypto/md5"
 	"crypto/sha1"
 	"encoding/hex"
-	"flag"
+	"encoding/json"
 	"fmt"
 	"html/template"
 	"image"
@@ -15,42 +15,50 @@ import (
 	_ "image/jpeg"
 	_ "image/png"
 	"io"
-	"log"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
+
+	"log"
 )
 
-var conType = map[string]string{
-	"png":  "image/png",
-	"jpg":  "image/jpeg",
-	"gif":  "image/gif",
-	"svg":  "text/xml",
-	"txt":  "text/plain",
-	"zip":  "application/x-zip-compressed",
-	"mp4":  "video/mpeg4",
-	"pdf":  "application/pdf",
-	"avi":  "video/avi",
-	"mp3":  "audio/mp3",
-	"json": "application/json",
-	"gz":   "application/octet-stream",
-	"tar":  "application/octet-stream",
-	"7z":   "application/octet-stream",
-	"ico":  "application/x-ico",
-	"exe":  "application/x-msdownload",
-	"mov":  "video/quicktime",
-	"js":   "application/x-javascript",
-	"css":  "text/css",
-}
-var logg *log.Logger
+var (
+	conType = map[string]string{
+		"png":  "image/png",
+		"jpg":  "image/jpeg",
+		"gif":  "image/gif",
+		"svg":  "text/xml",
+		"txt":  "text/plain",
+		"zip":  "application/x-zip-compressed",
+		"mp4":  "video/mpeg4",
+		"pdf":  "application/pdf",
+		"avi":  "video/avi",
+		"mp3":  "audio/mp3",
+		"json": "application/json",
+		"gz":   "application/octet-stream",
+		"tar":  "application/octet-stream",
+		"7z":   "application/octet-stream",
+		"ico":  "application/x-ico",
+		"exe":  "application/x-msdownload",
+		"mov":  "video/quicktime",
+		"js":   "application/x-javascript",
+		"css":  "text/css",
+	}
+	storage sync.Map
+)
 
 const (
+	// DOMAIN  = "https://cdn.tencent.oreorigin.com/"
+	DOMAIN  = "http://localhost:8105/"
 	MOUNT   = "./mount/"
 	QUALITY = "./quality/"
 	LOG     = "./log/fserver.log"
+	USER    = "admin"
+	PASS    = "admin123"
 )
 
 var (
@@ -161,20 +169,20 @@ func compressImageResource(filename string, q int, reader io.Reader) string {
 	if Last(filename) == "png" {
 		imgSrc, _, err := image.Decode(reader)
 		if err != nil {
-			log.Panicln(err)
+			log.Panic(err)
 			return MOUNT + filename
 		}
 		fname := strconv.Itoa(q) + "_" + filename
 		if fs, err := os.Open(QUALITY + fname); err != nil {
 			if os.IsExist(err) {
-				log.Panicln(err)
+				log.Panic(err)
 
 				return MOUNT + filename
 			}
 			fs.Close()
 			fs, err := os.OpenFile(QUALITY+fname, os.O_CREATE|os.O_RDWR, 666)
 			if err != nil {
-				log.Panicln(err)
+				log.Panic(err)
 
 				return MOUNT + filename
 			}
@@ -201,9 +209,9 @@ func main() {
 	http.HandleFunc("/", func(writer http.ResponseWriter, request *http.Request) {
 		if request.URL.Path == "/" {
 			// 校验用户名
-			if BasicAuth(writer, request) {
-				return
-			}
+			// if BasicAuth(writer, request) {
+			// 	return
+			// }
 			arr := make([]FileDirs, 0)
 			filepath.Walk(MOUNT[:len(MOUNT)-1], func(path string, info os.FileInfo, err error) error {
 				if !info.IsDir() {
@@ -236,7 +244,7 @@ func main() {
 					fs.Close()
 					fs, err = os.Open(fpath)
 					if err != nil {
-						log.Panicln(err)
+						log.Panic(err)
 					}
 				}
 			}
@@ -259,7 +267,7 @@ func main() {
 					}
 					if start > end || start < 0 || end < 0 || end >= fi.Size() {
 						writer.WriteHeader(http.StatusRequestedRangeNotSatisfiable)
-						logg.Println("sendFile2 start:", start, "end:", end, "size:", fi.Size())
+						log.Println("sendFile2 start:", start, "end:", end, "size:", fi.Size())
 						writer.WriteHeader(http.StatusBadRequest)
 						return
 					}
@@ -278,10 +286,11 @@ func main() {
 			}
 			_, err = fs.Seek(start, 0)
 			if err != nil {
-				logg.Println("sendFile3", err.Error())
+				log.Panic("sendFile3", err.Error())
 				writer.WriteHeader(http.StatusInternalServerError)
 				return
 			}
+			storage.Store(fileName, MOUNT[:len(MOUNT)-1]+fileName)
 			n := 4096000
 			buf := make([]byte, n)
 			for {
@@ -291,7 +300,7 @@ func main() {
 				_, err := fs.Read(buf[:n])
 				if err != nil {
 					if err != io.EOF {
-						logg.Println("error:", err)
+						log.Println("error:", err)
 					}
 					return
 				}
@@ -348,15 +357,15 @@ func main() {
 				os.Mkdir(MOUNT+request.FormValue("mount"), 666)
 				fs, err := os.OpenFile(MOUNT+mountDir+shaName, os.O_CREATE|os.O_WRONLY, 666)
 				if err != nil {
-					logg.Panicln(err)
+					log.Panic(err)
 
 				}
 				_, err = io.Copy(fs, tr)
 				defer fs.Close()
 				if err != nil {
-					logg.Panicln(err)
+					log.Panic(err)
 				}
-				logg.Println("save file :[" + head.Filename + "]\t" + "=>[" + MOUNT + mountDir + shaName + "]")
+				log.Println("save file :[" + head.Filename + "]\t" + "=>[" + MOUNT + mountDir + shaName + "]")
 			}
 			writer.Write([]byte(`{"t":1,"ok":"yes","msg":"success","url":"` + DOMAIN + mountDir + shaName + `"}`))
 			writer.Header().Add("Content-Type", "application/json")
@@ -385,7 +394,66 @@ FilePond.setOptions({
 			`))
 		}
 	})
+	// 对外api接口
+	http.HandleFunc("/api", func(writer http.ResponseWriter, request *http.Request) {
+		// 搜索
+		if search := request.URL.Query().Get("search"); search != "" {
+			arr := make([]FileDirs, 0)
+			filepath.Walk(MOUNT[:len(MOUNT)-1], func(path string, info os.FileInfo, err error) error {
+				if !info.IsDir() {
+					truePath := path[len(MOUNT)-2:]
+					arr = append(arr, FileDirs{
+						Name: truePath,
+						Url:  DOMAIN + truePath,
+					})
+				}
+				return nil
+			})
+			out, _ := json.Marshal(arr)
+			writer.Write(out)
+			return
+		}
+		// 指定目录下所有文件
+		if tree := request.URL.Query().Get("dir"); tree != "" {
+			arr := make([]FileDirs, 0)
+			_, err := os.Stat(MOUNT[:len(MOUNT)-1] + tree)
+			if err != nil {
+				if os.IsNotExist(err) {
+					_ = os.MkdirAll(MOUNT[:len(MOUNT)-1]+tree, 755)
+					writer.Write([]byte("[]"))
+					return
+				}
+			}
+			filepath.Walk(MOUNT[:len(MOUNT)-1]+tree, func(path string, info os.FileInfo, err error) error {
+				if !info.IsDir() {
+					truePath := path[len(MOUNT)-2:]
+					arr = append(arr, FileDirs{
+						Name: truePath,
+						Url:  DOMAIN + strings.ReplaceAll(truePath, `\`, "/"),
+					})
+				}
+				return nil
+			})
+			out, _ := json.Marshal(arr)
+			writer.Write(out)
+			return
+		}
+		arr := make([]FileDirs, 0)
+		filepath.Walk(MOUNT[:len(MOUNT)-1], func(path string, info os.FileInfo, err error) error {
+			if !info.IsDir() {
+				truePath := path[len(MOUNT)-2:]
+				arr = append(arr, FileDirs{
+					Name: truePath,
+					Url:  DOMAIN + truePath,
+				})
+			}
+			return nil
+		})
+		out, _ := json.Marshal(arr)
+		writer.Write(out)
+		return
+	})
 	if err := http.ListenAndServe(":8105", nil); err != nil {
-		logg.Panicln(err)
+		log.Fatal(err)
 	}
 }
