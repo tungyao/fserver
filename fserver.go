@@ -64,7 +64,7 @@ var (
 )
 
 func init() {
-	flag.StringVar(&DOMAIN, "domino", "https://you_domino/", "")
+	flag.StringVar(&DOMAIN, "domino", "http://localhost:8105/", "")
 	flag.StringVar(&USER, "user", "you_name", "")
 	flag.StringVar(&PASS, "pass", "you_pass", "")
 	fs, errx := os.OpenFile(LOG, os.O_RDWR|os.O_CREATE|os.O_APPEND, 766)
@@ -249,7 +249,6 @@ func main() {
 			fi, _ := fs.Stat()
 			writer.Header().Add("Etag", `T/"`+string(suffix[0][1:])+`"`)
 			writer.Header().Add("Last-Modify", fi.ModTime().Format(time.RFC1123))
-			fmt.Println(Last(fi.Name()))
 			writer.Header().Add("Content-Type", conType[Last(fi.Name())])
 			if cc := request.Header.Get("Cache-Control"); cc != "" && cc != "no-cache" {
 				writer.WriteHeader(304)
@@ -452,4 +451,9 @@ FilePond.setOptions({
 	if err := http.ListenAndServe(":8105", nil); err != nil {
 		log.Fatal(err)
 	}
+}
+
+// 增加分主备份系统
+func master() {
+
 }
